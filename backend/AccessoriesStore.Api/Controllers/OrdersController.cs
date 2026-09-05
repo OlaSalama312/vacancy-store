@@ -2,7 +2,6 @@ using System.Security.Claims;
 using AccessoriesStore.Api.Data;
 using AccessoriesStore.Api.DTOs;
 using AccessoriesStore.Api.Models;
-using AccessoriesStore.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,16 +14,16 @@ namespace AccessoriesStore.Api.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly AppDbContext _db;
-    private readonly PaymobService _paymob;
 
-    public OrdersController(AppDbContext db, PaymobService paymob)
+    public OrdersController(AppDbContext db)
     {
         _db = db;
-        _paymob = paymob;
     }
 
-    private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")!;
+    private string CurrentUserId =>
+        User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? User.FindFirstValue("sub")
+        ?? throw new UnauthorizedAccessException();
 
     [HttpPost]
     public async Task<ActionResult<OrderDto>> Create(CreateOrderRequest req)
@@ -41,9 +40,25 @@ public class OrdersController : ControllerBase
         if (products.Count != productIds.Distinct().Count())
             return BadRequest(new { message = "في منتج مش موجود في السلة" });
 
-        var paymentMethod = req.PaymentMethod == "card"
-            ? PaymentMethod.Card
-            : PaymentMethod.CashOnDelivery;
+        PaymentMethod paymentMethod;
+
+        switch (req.PaymentMethod?.ToLower())
+        {
+            case "instapay":
+                paymentMethod = PaymentMethod.InstaPay;
+                break;
+
+            case "vodafone_cash":
+                paymentMethod = PaymentMethod.VodafoneCash;
+                break;
+
+            case "cod":
+                paymentMethod = PaymentMethod.CashOnDelivery;
+                break;
+
+            default:
+                return BadRequest(new { message = "طريقة الدفع غير صحيحة" });
+        }
 
         var order = new Order
         {
@@ -52,7 +67,7 @@ public class OrdersController : ControllerBase
             ShippingAddress = req.ShippingAddress,
             Notes = req.Notes,
             PaymentMethod = paymentMethod,
-            Status = OrderStatus.Pending,
+            Status = OrderStatus.Pending
         };
 
         foreach (var item in req.Items)
@@ -64,7 +79,7 @@ public class OrdersController : ControllerBase
                 ProductId = product.Id,
                 ProductName = product.Name,
                 Price = product.Price,
-                Quantity = item.Quantity,
+                Quantity = item.Quantity
             });
         }
 
@@ -75,32 +90,6 @@ public class OrdersController : ControllerBase
 
         var user = await _db.Users.FindAsync(CurrentUserId);
 
-        // لو العميل اختار الدفع بالكارت
-        if (paymentMethod == PaymentMethod.Card)
-        {
-            try
-            {
-                var paymentUrl = await _paymob.GetPaymentUrlAsync(order, user!);
-
-                await _db.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    orderId = order.Id,
-                    paymentUrl = paymentUrl
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    message = "حصل خطأ أثناء تجهيز الدفع بالكارت",
-                    error = ex.Message
-                });
-            }
-        }
-
-        // الدفع عند الاستلام
         return Ok(new OrderDto(
             order.Id,
             user?.FullName ?? "",
@@ -145,3 +134,4 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 }
+

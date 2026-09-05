@@ -11,6 +11,8 @@ public enum OrderStatus
 
 public enum PaymentMethod
 {
-    Card,
-    CashOnDelivery
+    Card = 0,
+    CashOnDelivery = 1,
+    InstaPay = 2,
+    VodafoneCash = 3
 }

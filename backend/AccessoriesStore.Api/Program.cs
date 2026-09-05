@@ -51,7 +51,7 @@ builder.Services
     });
 
 builder.Services.AddScoped<TokenService>();
-builder.Services.AddHttpClient<PaymobService>();
+builder.Services.AddScoped<TokenService>();
 
 // CORS - افتحيها للدومين بتاع الـ frontend وقت النشر بدل AllowAnyOrigin
 builder.Services.AddCors(options =>

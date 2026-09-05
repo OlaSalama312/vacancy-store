@@ -30,7 +30,7 @@ services:
       Jwt__Key: ${JWT_KEY:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_AT_LEAST_32_CHARS}
       Jwt__Issuer: AccessoriesStoreApi
       Jwt__Audience: AccessoriesStoreClient
-      Cors__AllowedOrigins__0: "https://generations-gmc-portrait-moss.trycloudflare.com"
+      Cors__AllowedOrigins__0: "http://localhost:5180"
       Paymob__ApiKey: ${PAYMOB_API_KEY:-CHANGE_ME}
       Paymob__IntegrationId: ${PAYMOB_INTEGRATION_ID:-CHANGE_ME}
       Paymob__IframeId: ${PAYMOB_IFRAME_ID:-CHANGE_ME}
@@ -44,7 +44,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://eminem-normally-dynamic-prev.trycloudflare.com/api
+        VITE_API_URL: http://localhost:5000/api
     restart: unless-stopped
     depends_on:
       - backend

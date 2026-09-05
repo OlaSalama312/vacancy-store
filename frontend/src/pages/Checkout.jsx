@@ -1,98 +1,302 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { api } from "../api/client";
 
+const INSTAPAY_ACCOUNT = "01142575907";
+const VODAFONE_CASH_NUMBER = "01055891728";
+
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ city: "", address: "", notes: "" });
-  const [paymentMethod, setPaymentMethod] = useState("card");
+
+  const [paymentMethod, setPaymentMethod] = useState("cod");
+
+  const [form, setForm] = useState({
+    city: "",
+    address: "",
+    notes: "",
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [orderId, setOrderId] = useState(null);
 
-  function set(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
-  }
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (items.length === 0) {
+      setError("السلة فاضية");
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const order = await api.createOrder({
-        items: items.map((i) => ({ productId: i.id, quantity: i.qty })),
+      const payload = {
         shippingCity: form.city,
         shippingAddress: form.address,
-        notes: form.notes,
+        notes: form.notes || null,
         paymentMethod,
-      });
+        items: items.map((item) => ({
+          productId: item.id,
+          quantity: item.qty,
+        })),
+      };
 
-if (paymentMethod === "card") {
-  window.location.href = order.paymentUrl;
-} else {
-        clearCart();
-        navigate("/account");
-      }
+      const order = await api.createOrder(payload);
+
+      setOrderId(order.id);
+      setSuccess(true);
+      clearCart();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "حصل خطأ أثناء تأكيد الطلب");
     } finally {
       setLoading(false);
     }
+  };
+
+  if (success) {
+    return (
+      <div
+        style={{
+          maxWidth: "700px",
+          margin: "60px auto",
+          padding: "30px",
+          textAlign: "center",
+          direction: "rtl",
+        }}
+      >
+        <h1>تم تأكيد الطلب ✅</h1>
+
+        <p>
+          رقم الطلب: <strong>#{orderId}</strong>
+        </p>
+
+        <p>
+          إجمالي الطلب: <strong>{total} جنيه</strong>
+        </p>
+
+        {paymentMethod === "instapay" && (
+          <div style={infoStyle}>
+            <h3>الدفع عن طريق InstaPay</h3>
+
+            <p>
+              حساب InstaPay: <strong>{INSTAPAY_ACCOUNT}</strong>
+            </p>
+
+            <p>
+              بعد التحويل، احتفظي بإثبات الدفع لمراجعة الطلب.
+            </p>
+          </div>
+        )}
+
+        {paymentMethod === "vodafone_cash" && (
+          <div style={infoStyle}>
+            <h3>الدفع عن طريق Vodafone Cash</h3>
+
+            <p>
+              رقم Vodafone Cash:{" "}
+              <strong>{VODAFONE_CASH_NUMBER}</strong>
+            </p>
+
+            <p>
+              بعد التحويل، احتفظي بإثبات الدفع لمراجعة الطلب.
+            </p>
+          </div>
+        )}
+
+        {paymentMethod === "cod" && (
+          <div style={infoStyle}>
+            <h3>الدفع عند الاستلام</h3>
+            <p>هتدفعي قيمة الطلب عند استلامه.</p>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
-    <div className="wrap checkout-page">
-      <h2>استكمال الطلب</h2>
-      <div className="checkout-grid">
-        <form onSubmit={handleSubmit} className="card-surface">
-          <div className="field">
-            <label>المحافظة / المدينة</label>
-            <input value={form.city} onChange={set("city")} required />
-          </div>
-          <div className="field">
-            <label>العنوان بالتفصيل</label>
-            <textarea rows={2} value={form.address} onChange={set("address")} required />
-          </div>
-          <div className="field">
-            <label>ملاحظات (اختياري)</label>
-            <textarea rows={2} value={form.notes} onChange={set("notes")} />
-          </div>
+    <div
+      style={{
+        maxWidth: "700px",
+        margin: "40px auto",
+        padding: "20px",
+        direction: "rtl",
+      }}
+    >
+      <h1>إتمام الطلب</h1>
 
-          <div className="field">
-            <label>طريقة الدفع</label>
-            <div className="payment-options">
-              <label className={`pay-option ${paymentMethod === "card" ? "active" : ""}`}>
-                <input type="radio" name="pay" checked={paymentMethod === "card"} onChange={() => setPaymentMethod("card")} />
-                دفع بالكارت (Paymob)
-              </label>
-              <label className={`pay-option ${paymentMethod === "cod" ? "active" : ""}`}>
-                <input type="radio" name="pay" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />
-                الدفع عند الاستلام
-              </label>
-            </div>
-          </div>
-
-          {error && <p className="error-text">{error}</p>}
-          <button className="btn btn-block" disabled={loading}>
-            {loading ? "..." : paymentMethod === "card" ? "الانتقال للدفع" : "تأكيد الطلب"}
-          </button>
-        </form>
-
-        <div className="order-summary card-surface">
-          <h3>ملخص الطلب</h3>
-          {items.map((i) => (
-            <div className="summary-row" key={i.id}>
-              <span>{i.name} × {i.qty}</span>
-              <span>{i.price * i.qty} ج.م</span>
-            </div>
-          ))}
-          <div className="summary-row total">
-            <span>الإجمالي</span>
-            <strong>{total} ج.م</strong>
-          </div>
+      {error && (
+        <div
+          style={{
+            background: "#ffe5e5",
+            padding: "12px",
+            marginBottom: "20px",
+            borderRadius: "8px",
+            color: "#b00000",
+          }}
+        >
+          {error}
         </div>
+      )}
+
+      <div
+        style={{
+          background: "#f7f7f7",
+          padding: "15px",
+          borderRadius: "8px",
+          marginBottom: "25px",
+        }}
+      >
+        <h3>ملخص الطلب</h3>
+
+        <p>عدد المنتجات: {items.length}</p>
+
+        <p>
+          الإجمالي: <strong>{total} جنيه</strong>
+        </p>
       </div>
+
+      <form onSubmit={handleSubmit}>
+        <h3>بيانات الشحن</h3>
+
+        <input
+          name="city"
+          placeholder="المحافظة / المدينة"
+          value={form.city}
+          onChange={handleChange}
+          required
+          style={inputStyle}
+        />
+
+        <textarea
+          name="address"
+          placeholder="العنوان بالتفصيل"
+          value={form.address}
+          onChange={handleChange}
+          required
+          style={inputStyle}
+        />
+
+        <textarea
+          name="notes"
+          placeholder="ملاحظات إضافية (اختياري)"
+          value={form.notes}
+          onChange={handleChange}
+          style={inputStyle}
+        />
+
+        <h3>طريقة الدفع</h3>
+
+        <label style={paymentStyle}>
+          <input
+            type="radio"
+            value="instapay"
+            checked={paymentMethod === "instapay"}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+          />
+          InstaPay
+        </label>
+
+        {paymentMethod === "instapay" && (
+          <div style={infoStyle}>
+            <strong>الدفع عن طريق InstaPay</strong>
+
+            <p>
+              حساب InstaPay: <strong>{INSTAPAY_ACCOUNT}</strong>
+            </p>
+
+            <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
+          </div>
+        )}
+
+        <label style={paymentStyle}>
+          <input
+            type="radio"
+            value="vodafone_cash"
+            checked={paymentMethod === "vodafone_cash"}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+          />
+          Vodafone Cash
+        </label>
+
+        {paymentMethod === "vodafone_cash" && (
+          <div style={infoStyle}>
+            <strong>الدفع عن طريق Vodafone Cash</strong>
+
+            <p>
+              رقم Vodafone Cash:{" "}
+              <strong>{VODAFONE_CASH_NUMBER}</strong>
+            </p>
+
+            <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
+          </div>
+        )}
+
+        <label style={paymentStyle}>
+          <input
+            type="radio"
+            value="cod"
+            checked={paymentMethod === "cod"}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+          />
+          الدفع عند الاستلام
+        </label>
+
+        {paymentMethod === "cod" && (
+          <div style={infoStyle}>
+            <p>هتدفعي قيمة الطلب عند استلامه.</p>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "14px",
+            marginTop: "20px",
+            cursor: loading ? "not-allowed" : "pointer",
+            fontSize: "16px",
+          }}
+        >
+          {loading ? "جاري تأكيد الطلب..." : "تأكيد الطلب"}
+        </button>
+      </form>
     </div>
   );
 }
+
+const inputStyle = {
+  width: "100%",
+  padding: "12px",
+  marginBottom: "12px",
+  boxSizing: "border-box",
+};
+
+const paymentStyle = {
+  display: "block",
+  padding: "14px",
+  marginBottom: "10px",
+  cursor: "pointer",
+  border: "1px solid #ddd",
+  borderRadius: "8px",
+};
+
+const infoStyle = {
+  padding: "15px",
+  marginBottom: "15px",
+  border: "1px solid #ddd",
+  borderRadius: "8px",
+  background: "#fafafa",
+};
+
+

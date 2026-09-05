@@ -56,10 +56,11 @@ export default function Layout() {
             <h4>روابط سريعة</h4>
             <Link to="/">الكتالوج</Link>
             <Link to="/account">طلباتي</Link>
+
           </div>
           <div>
             <h4>تواصلي معنا</h4>
-            <a href="https://wa.me/201000000000" target="_blank" rel="noreferrer">واتساب: 01000000000</a>
+            <a href="https://wa.me/201055891728" target="_blank" rel="noreferrer">واتساب: 010558917280</a>
           </div>
         </div>
         <div className="foot-bottom wrap">© 2026 لالئ للإكسسوارات — جميع الحقوق محفوظة</div>
