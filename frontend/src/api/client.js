@@ -5,36 +5,51 @@ function getToken() {
   return localStorage.getItem("auth_token");
 }
 
+
 async function request(path, { method = "GET", body, auth = false } = {}) {
-  const headers = { };
-    if (!(body instanceof FormData)) {
+  const headers = {};
+  const isFormData = body instanceof FormData;
+
+  if (!isFormData) {
     headers["Content-Type"] = "application/json";
   }
+
   if (auth) {
     const token = getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
   }
 
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: isFormData
+      ? body
+      : body
+        ? JSON.stringify(body)
+        : undefined,
   });
 
   if (!res.ok) {
     let message = "حصل خطأ، حاولي تاني";
+
     try {
       const data = await res.json();
       message = data.message || data.title || message;
     } catch {
       /* ignore */
     }
+
     throw new Error(message);
   }
 
   if (res.status === 204) return null;
+
   return res.json();
 }
+
+
 
 export const api = {
   // ---- Auth ----

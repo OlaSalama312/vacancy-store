@@ -14,7 +14,8 @@ export default function Layout() {
       <header className="site-header">
         <div className="wrap headbar">
           <Link to="/" className="logo">
-            <span className="gem"></span> لالئ
+
+            <span className="gem"></span> Vacancy
           </Link>
 
           <nav>
@@ -49,7 +50,9 @@ export default function Layout() {
       <footer>
         <div className="wrap foot-grid">
           <div>
-            <h4>لالئ</h4>
+
+            <h4>Vacancy</h4>
+
             <p>متجر إكسسوارات مصري بيقدملك قطع مختارة بعناية بسعر مناسب وتوصيل لكل المحافظات.</p>
           </div>
           <div>
@@ -63,7 +66,8 @@ export default function Layout() {
             <a href="https://wa.me/201055891728" target="_blank" rel="noreferrer">واتساب: 010558917280</a>
           </div>
         </div>
-        <div className="foot-bottom wrap">© 2026 لالئ للإكسسوارات — جميع الحقوق محفوظة</div>
+        <div className="foot-bottom wrap">© 2026 Vacancy للإكسسوارات — جميع الحقوق محفوظة</div>
+
       </footer>
     </div>
   );

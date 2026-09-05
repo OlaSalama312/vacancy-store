@@ -63,13 +63,22 @@ function OrdersTab() {
 }
 
 function emptyProduct() {
-  return { id: null, name: "", category: "rings", price: "", oldPrice: "", imageUrl: "" };
+   return {
+    id: null,
+    name: "",
+    category: "rings",
+    price: "",
+    oldPrice: "",
+    imageUrl: "",
+    imageFile: null,
+  };
 }
 
 function ProductsTab() {
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState(emptyProduct());
   const [loading, setLoading] = useState(true);
+  const [imagePreview, setImagePreview] = useState("");
 
   useEffect(() => { load(); }, []);
   function load() {
@@ -79,19 +88,64 @@ function ProductsTab() {
 
   function set(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  }
+  function handleImageChange(e) {
+  const file = e.target.files?.[0];
+
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("من فضلك اختاري صورة فقط");
+    return;
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const payload = { ...form, price: Number(form.price), oldPrice: form.oldPrice ? Number(form.oldPrice) : null };
-    if (form.id) {
-      await api.adminUpdateProduct(form.id, payload);
-    } else {
-      await api.adminCreateProduct(payload);
+  setForm((f) => ({
+    ...f,
+    imageFile: file,
+  }));
+
+  setImagePreview(URL.createObjectURL(file));
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+
+  try {
+    const formData = new FormData();
+
+    formData.append("Name", form.name);
+    formData.append("Category", form.category);
+    formData.append("Price", String(form.price));
+
+    if (form.oldPrice) {
+      formData.append("OldPrice", String(form.oldPrice));
     }
+
+    if (form.imageFile) {
+      formData.append("Image", form.imageFile);
+    }
+
+    if (form.id) {
+      await api.adminUpdateProduct(form.id, formData);
+    } else {
+      if (!form.imageFile) {
+        alert("من فضلك اختاري صورة للمنتج");
+        return;
+      }
+
+      await api.adminCreateProduct(formData);
+    }
+
+    alert(form.id ? "تم تعديل المنتج بنجاح ✅" : "تم إضافة المنتج بنجاح ✅");
+
     setForm(emptyProduct());
+    setImagePreview("");
     load();
+  } catch (error) {
+    alert(error.message || "حصل خطأ، حاولي تاني");
   }
+}
 
   async function handleDelete(id) {
     await api.adminDeleteProduct(id);
@@ -106,7 +160,29 @@ function ProductsTab() {
         <div className="field"><label>القسم (slug)</label><input value={form.category} onChange={set("category")} required /></div>
         <div className="field"><label>السعر</label><input type="number" value={form.price} onChange={set("price")} required /></div>
         <div className="field"><label>السعر قبل الخصم (اختياري)</label><input type="number" value={form.oldPrice} onChange={set("oldPrice")} /></div>
-        <div className="field"><label>رابط الصورة</label><input value={form.imageUrl} onChange={set("imageUrl")} required /></div>
+        <div className="field">
+  <label>صورة المنتج</label>
+
+  <input
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    onChange={handleImageChange}
+  />
+
+  {imagePreview && (
+    <img
+      src={imagePreview}
+      alt="معاينة الصورة"
+      style={{
+        width: "150px",
+        height: "150px",
+        objectFit: "cover",
+        marginTop: "10px",
+        borderRadius: "10px",
+      }}
+    />
+  )}
+</div>
         <button className="btn btn-block">{form.id ? "حفظ التعديل" : "إضافة المنتج"}</button>
       </form>
 
@@ -120,7 +196,14 @@ function ProductsTab() {
                 <td>{p.category}</td>
                 <td>{p.price} ج.م</td>
                 <td>
-                  <button className="link-btn" onClick={() => setForm({ ...p, oldPrice: p.oldPrice || "" })}>تعديل</button>
+                  <button className="link-btn"onClick={() => {
+  setForm({
+    ...p,
+    oldPrice: p.oldPrice || "",
+    imageFile: null,
+  });
+  setImagePreview(p.imageUrl || "");
+}}>تعديل</button>
                   <button className="link-btn danger" onClick={() => handleDelete(p.id)}>حذف</button>
                 </td>
               </tr>

@@ -34,7 +34,9 @@ services:
       Paymob__ApiKey: ${PAYMOB_API_KEY:-CHANGE_ME}
       Paymob__IntegrationId: ${PAYMOB_INTEGRATION_ID:-CHANGE_ME}
       Paymob__IframeId: ${PAYMOB_IFRAME_ID:-CHANGE_ME}
+      
       AdminSeed__Email: ${ADMIN_EMAIL:-admin@laale.com}
+
       AdminSeed__Password: ${ADMIN_PASSWORD:-ChangeMe123!}
     ports:
       - "5000:8080"
