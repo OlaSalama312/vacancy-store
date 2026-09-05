@@ -1,3 +1,4 @@
+
 using Microsoft.AspNetCore.Http;
 
 namespace AccessoriesStore.Api.DTOs;
@@ -14,6 +15,10 @@ public class CreateOrderRequest
     public string ShippingCity { get; set; } = string.Empty;
 
     public string ShippingAddress { get; set; } = string.Empty;
+
+    public decimal ShippingCost { get; set; }
+
+    public decimal FinalTotal { get; set; }
 
     public string? Notes { get; set; }
 
@@ -34,6 +39,8 @@ public record OrderDto(
     string CustomerName,
     string Status,
     decimal Total,
+    decimal ShippingCost,
+    decimal FinalTotal,
     DateTime CreatedAt,
     string? Notes,
     List<OrderItemDto> Items
@@ -50,6 +57,8 @@ public record InitiatePaymentRequest(
 public record InitiatePaymentResponse(
     string PaymentUrl
 );
+
+
 
 
 

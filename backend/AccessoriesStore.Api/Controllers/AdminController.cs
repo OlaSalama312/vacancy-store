@@ -33,6 +33,8 @@ public class AdminController : ControllerBase
             o.User?.FullName ?? "",
             o.Status.ToString(),
             o.Total,
+            o.ShippingCost,
+            o.FinalTotal,
             o.CreatedAt,
             o.Notes,
             o.Items.Select(i => new OrderItemDto(
@@ -56,8 +58,16 @@ public class AdminController : ControllerBase
         if (order == null)
             return NotFound(new { message = "الطلب مش موجود" });
 
-        if (!Enum.TryParse<OrderStatus>(req.Status, true, out var status))
-            return BadRequest(new { message = "حالة غير معروفة" });
+        if (!Enum.TryParse<OrderStatus>(
+                req.Status,
+                true,
+                out var status))
+        {
+            return BadRequest(new
+            {
+                message = "حالة غير معروفة"
+            });
+        }
 
         order.Status = status;
 
@@ -78,7 +88,10 @@ public class AdminController : ControllerBase
             .FirstOrDefaultAsync(c => c.Slug == req.Category);
 
         if (category == null)
-            return BadRequest(new { message = "القسم مش موجود" });
+            return BadRequest(new
+            {
+                message = "القسم مش موجود"
+            });
 
         var product = new Product
         {
@@ -93,9 +106,15 @@ public class AdminController : ControllerBase
         if (req.Image != null)
         {
             if (!req.Image.ContentType.StartsWith("image/"))
-                return BadRequest(new { message = "من فضلك اختاري صورة فقط" });
+            {
+                return BadRequest(new
+                {
+                    message = "من فضلك اختاري صورة فقط"
+                });
+            }
 
             using var stream = new MemoryStream();
+
             await req.Image.CopyToAsync(stream);
 
             product.ImageData = stream.ToArray();
@@ -131,13 +150,23 @@ public class AdminController : ControllerBase
         var product = await _db.Products.FindAsync(id);
 
         if (product == null)
-            return NotFound(new { message = "المنتج مش موجود" });
+        {
+            return NotFound(new
+            {
+                message = "المنتج مش موجود"
+            });
+        }
 
         var category = await _db.Categories
             .FirstOrDefaultAsync(c => c.Slug == req.Category);
 
         if (category == null)
-            return BadRequest(new { message = "القسم مش موجود" });
+        {
+            return BadRequest(new
+            {
+                message = "القسم مش موجود"
+            });
+        }
 
         product.Name = req.Name;
         product.Description = req.Description;
@@ -149,9 +178,15 @@ public class AdminController : ControllerBase
         if (req.Image != null)
         {
             if (!req.Image.ContentType.StartsWith("image/"))
-                return BadRequest(new { message = "من فضلك اختاري صورة فقط" });
+            {
+                return BadRequest(new
+                {
+                    message = "من فضلك اختاري صورة فقط"
+                });
+            }
 
             using var stream = new MemoryStream();
+
             await req.Image.CopyToAsync(stream);
 
             product.ImageData = stream.ToArray();
@@ -170,9 +205,15 @@ public class AdminController : ControllerBase
         var product = await _db.Products.FindAsync(id);
 
         if (product == null)
-            return NotFound(new { message = "المنتج مش موجود" });
+        {
+            return NotFound(new
+            {
+                message = "المنتج مش موجود"
+            });
+        }
 
-        // Soft delete عشان الطلبات القديمة اللي بتشاور على المنتج ده متتأثرش
+        // Soft delete عشان الطلبات القديمة اللي بتشاور
+        // على المنتج ده متتأثرش
         product.IsActive = false;
 
         await _db.SaveChangesAsync();
@@ -180,4 +221,6 @@ public class AdminController : ControllerBase
         return NoContent();
     }
 }
+
+
 

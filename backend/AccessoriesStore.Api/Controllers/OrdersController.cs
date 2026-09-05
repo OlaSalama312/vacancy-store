@@ -1,3 +1,4 @@
+
 using System.Security.Claims;
 using AccessoriesStore.Api.Data;
 using AccessoriesStore.Api.DTOs;
@@ -31,10 +32,12 @@ public class OrdersController : ControllerBase
         [FromForm] CreateOrderRequest req)
     {
         if (req.Items == null || req.Items.Count == 0)
+        {
             return BadRequest(new
             {
                 message = "السلة فاضية"
             });
+        }
 
         var productIds = req.Items
             .Select(i => i.ProductId)
@@ -45,10 +48,12 @@ public class OrdersController : ControllerBase
             .ToListAsync();
 
         if (products.Count != productIds.Distinct().Count())
+        {
             return BadRequest(new
             {
                 message = "في منتج مش موجود في السلة"
             });
+        }
 
         PaymentMethod paymentMethod;
 
@@ -77,8 +82,7 @@ public class OrdersController : ControllerBase
         if (
             (paymentMethod == PaymentMethod.InstaPay ||
              paymentMethod == PaymentMethod.VodafoneCash) &&
-            req.PaymentProof == null
-        )
+            req.PaymentProof == null)
         {
             return BadRequest(new
             {
@@ -115,15 +119,30 @@ public class OrdersController : ControllerBase
             }
         }
 
-      var order = new Order
-{
-    UserId = CurrentUserId,
-    ShippingCity = req.ShippingCity,
-    ShippingAddress = req.ShippingAddress,
-    Notes = req.Notes,
-    PaymentMethod = paymentMethod,
-    Status = OrderStatus.Pending
-};
+        // ==========================================
+        // حساب الشحن حسب منطقة القاهرة
+        // ==========================================
+
+        var shippingCost = GetShippingCost(req.ShippingCity);
+
+        if (shippingCost == null)
+        {
+            return BadRequest(new
+            {
+                message = "من فضلك اختاري منطقة صحيحة داخل القاهرة"
+            });
+        }
+
+        var order = new Order
+        {
+            UserId = CurrentUserId,
+            ShippingCity = req.ShippingCity,
+            ShippingAddress = req.ShippingAddress,
+            Notes = req.Notes,
+            ShippingCost = shippingCost.Value,
+            PaymentMethod = paymentMethod,
+            Status = OrderStatus.Pending
+        };
 
         // حفظ صورة إثبات الدفع داخل قاعدة البيانات
         if (req.PaymentProof != null)
@@ -133,6 +152,7 @@ public class OrdersController : ControllerBase
             await req.PaymentProof.CopyToAsync(memoryStream);
 
             order.PaymentProof = memoryStream.ToArray();
+
             order.PaymentProofContentType =
                 req.PaymentProof.ContentType;
         }
@@ -151,8 +171,13 @@ public class OrdersController : ControllerBase
             });
         }
 
+        // إجمالي المنتجات قبل الشحن
         order.Total = order.Items.Sum(
             i => i.Price * i.Quantity);
+
+        // الإجمالي النهائي شامل الشحن
+        order.FinalTotal =
+            order.Total + order.ShippingCost;
 
         _db.Orders.Add(order);
 
@@ -160,14 +185,16 @@ public class OrdersController : ControllerBase
 
         var user = await _db.Users.FindAsync(CurrentUserId);
 
-      return Ok(new OrderDto(
-    order.Id,
-    user?.FullName ?? "",
-    order.Status.ToString(),
-    order.Total,
-    order.CreatedAt,
-    order.Notes,
-    order.Items
+        return Ok(new OrderDto(
+            order.Id,
+            user?.FullName ?? "",
+            order.Status.ToString(),
+            order.Total,
+            order.ShippingCost,
+            order.FinalTotal,
+            order.CreatedAt,
+            order.Notes,
+            order.Items
                 .Select(i => new OrderItemDto(
                     i.ProductId,
                     i.ProductName,
@@ -187,14 +214,16 @@ public class OrdersController : ControllerBase
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
-       var result = orders.Select(o => new OrderDto(
-    o.Id,
-    o.User?.FullName ?? "",
-    o.Status.ToString(),
-    o.Total,
-    o.CreatedAt,
-    o.Notes,
-    o.Items
+        var result = orders.Select(o => new OrderDto(
+            o.Id,
+            o.User?.FullName ?? "",
+            o.Status.ToString(),
+            o.Total,
+            o.ShippingCost,
+            o.FinalTotal,
+            o.CreatedAt,
+            o.Notes,
+            o.Items
                 .Select(i => new OrderItemDto(
                     i.ProductId,
                     i.ProductName,
@@ -205,4 +234,65 @@ public class OrdersController : ControllerBase
 
         return Ok(result);
     }
+
+    // ==========================================
+    // تحديد سعر الشحن حسب منطقة القاهرة
+    // ==========================================
+
+    private static decimal? GetShippingCost(string area)
+    {
+        if (string.IsNullOrWhiteSpace(area))
+            return null;
+
+        var normalizedArea = area.Trim();
+
+        // شحن 40 جنيه
+        var nearbyAreas = new[]
+        {
+            "مدينة نصر",
+            "مصر الجديدة",
+            "العباسية",
+            "روكسي",
+            "سراي القبة",
+            "حدائق القبة",
+            "الزيتون",
+            "عين شمس",
+            "المطرية"
+        };
+
+        if (nearbyAreas.Contains(normalizedArea))
+            return 40m;
+
+        // شحن 60 جنيه
+        var mediumAreas = new[]
+        {
+            "المعادي",
+            "المقطم",
+            "شبرا",
+            "وسط البلد",
+            "الزمالك"
+        };
+
+        if (mediumAreas.Contains(normalizedArea))
+            return 60m;
+
+        // شحن 80 جنيه
+        var farAreas = new[]
+        {
+            "التجمع الأول",
+            "التجمع الخامس",
+            "القاهرة الجديدة",
+            "الشروق",
+            "بدر",
+            "مدينتي",
+            "العاصمة الإدارية"
+        };
+
+        if (farAreas.Contains(normalizedArea))
+            return 80m;
+
+        return null;
+    }
 }
+
+

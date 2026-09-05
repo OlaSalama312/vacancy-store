@@ -6,6 +6,59 @@ import { api } from "../api/client";
 const INSTAPAY_ACCOUNT = "01142575907";
 const VODAFONE_CASH_NUMBER = "01055891728";
 
+// مناطق القاهرة وأسعار الشحن
+const shippingAreas = [
+  {
+    title: "مناطق قريبة - 40 جنيه",
+    price: 40,
+    areas: [
+      "مدينة نصر",
+      "مصر الجديدة",
+      "العباسية",
+      "روكسي",
+      "سراي القبة",
+      "حدائق القبة",
+      "الزيتون",
+      "عين شمس",
+      "المطرية",
+    ],
+  },
+  {
+    title: "مناطق متوسطة - 60 جنيه",
+    price: 60,
+    areas: [
+      "المعادي",
+      "المقطم",
+      "شبرا",
+      "وسط البلد",
+      "الزمالك",
+    ],
+  },
+  {
+    title: "مناطق بعيدة - 80 جنيه",
+    price: 80,
+    areas: [
+      "التجمع الأول",
+      "التجمع الخامس",
+      "القاهرة الجديدة",
+      "الشروق",
+      "بدر",
+      "مدينتي",
+      "العاصمة الإدارية",
+    ],
+  },
+];
+
+const getShippingCost = (area) => {
+  for (const group of shippingAreas) {
+    if (group.areas.includes(area)) {
+      return group.price;
+    }
+  }
+
+  return 0;
+};
+
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
 
@@ -22,6 +75,9 @@ export default function Checkout() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState(null);
+
+  const shippingCost = getShippingCost(form.city);
+  const finalTotal = total + shippingCost;
 
   const handleChange = (e) => {
     setForm({
@@ -44,6 +100,16 @@ export default function Checkout() {
       return;
     }
 
+    if (!form.city) {
+      setError("من فضلك اختاري المنطقة");
+      return;
+    }
+
+    if (shippingCost === 0) {
+      setError("من فضلك اختاري منطقة صحيحة");
+      return;
+    }
+
     if (
       (paymentMethod === "instapay" ||
         paymentMethod === "vodafone_cash") &&
@@ -58,8 +124,15 @@ export default function Checkout() {
     try {
       const formData = new FormData();
 
+      // بيانات الشحن
       formData.append("ShippingCity", form.city);
       formData.append("ShippingAddress", form.address);
+
+      // مصاريف الشحن
+      formData.append("ShippingCost", shippingCost);
+
+      // الإجمالي النهائي
+      formData.append("FinalTotal", finalTotal);
 
       if (form.notes) {
         formData.append("Notes", form.notes);
@@ -107,18 +180,32 @@ export default function Checkout() {
           رقم الطلب: <strong>#{orderId}</strong>
         </p>
 
-        <p>
-          إجمالي الطلب: <strong>{total} جنيه</strong>
-        </p>
+        <div style={summaryStyle}>
+          <p>
+            قيمة المنتجات: <strong>{total} جنيه</strong>
+          </p>
+
+          <p>
+            مصاريف الشحن: <strong>{shippingCost} جنيه</strong>
+          </p>
+
+          <hr />
+
+          <p style={{ fontSize: "20px" }}>
+            الإجمالي النهائي:{" "}
+            <strong>{finalTotal} جنيه</strong>
+          </p>
+        </div>
 
         {paymentMethod === "instapay" && (
           <div style={infoStyle}>
             <h3>الدفع عن طريق InstaPay</h3>
 
-            <p>
-              حساب InstaPay:{" "}
-              <strong>{INSTAPAY_ACCOUNT}</strong>
-            </p>
+            <p>حساب InstaPay:</p>
+
+            <div style={numberStyle}>
+              {INSTAPAY_ACCOUNT}
+            </div>
 
             <p>
               بعد التحويل، احتفظي بإثبات الدفع لمراجعة الطلب.
@@ -130,10 +217,11 @@ export default function Checkout() {
           <div style={infoStyle}>
             <h3>الدفع عن طريق Vodafone Cash</h3>
 
-            <p>
-              رقم Vodafone Cash:{" "}
-              <strong>{VODAFONE_CASH_NUMBER}</strong>
-            </p>
+            <p>رقم Vodafone Cash:</p>
+
+            <div style={numberStyle}>
+              {VODAFONE_CASH_NUMBER}
+            </div>
 
             <p>
               بعد التحويل، احتفظي بإثبات الدفع لمراجعة الطلب.
@@ -176,34 +264,79 @@ export default function Checkout() {
         </div>
       )}
 
-      <div
-        style={{
-          background: "#f7f7f7",
-          padding: "15px",
-          borderRadius: "8px",
-          marginBottom: "25px",
-        }}
-      >
+      <div style={summaryStyle}>
         <h3>ملخص الطلب</h3>
 
         <p>عدد المنتجات: {items.length}</p>
 
         <p>
-          الإجمالي: <strong>{total} جنيه</strong>
+          قيمة المنتجات: <strong>{total} جنيه</strong>
+        </p>
+
+        <p>
+          مصاريف الشحن:{" "}
+          <strong>
+            {shippingCost > 0 ? `${shippingCost} جنيه` : "اختاري المنطقة"}
+          </strong>
+        </p>
+
+        <hr />
+
+        <p style={{ fontSize: "20px" }}>
+          الإجمالي النهائي:{" "}
+          <strong>
+            {finalTotal} جنيه
+          </strong>
         </p>
       </div>
 
       <form onSubmit={handleSubmit}>
         <h3>بيانات الشحن</h3>
 
-        <input
+        <label style={labelStyle}>
+          المحافظة
+        </label>
+
+        <select
+          name="governorate"
+          value="القاهرة"
+          disabled
+          style={inputStyle}
+        >
+          <option value="القاهرة">القاهرة</option>
+        </select>
+
+        <label style={labelStyle}>
+          المنطقة
+        </label>
+
+        <select
           name="city"
-          placeholder="المحافظة / المدينة"
           value={form.city}
           onChange={handleChange}
           required
           style={inputStyle}
-        />
+        >
+          <option value="">
+            اختاري المنطقة
+          </option>
+
+          {shippingAreas.map((group) => (
+            <optgroup
+              key={group.title}
+              label={group.title}
+            >
+              {group.areas.map((area) => (
+                <option
+                  key={area}
+                  value={area}
+                >
+                  {area} - {group.price} جنيه
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
 
         <textarea
           name="address"
@@ -240,13 +373,12 @@ export default function Checkout() {
           <div style={infoStyle}>
             <strong>الدفع عن طريق InstaPay</strong>
 
-          <p>
-  حساب InstaPay:
-</p>
+            <p>حساب InstaPay:</p>
 
-<div style={numberStyle}>
-  {INSTAPAY_ACCOUNT}
-</div>
+            <div style={numberStyle}>
+              {INSTAPAY_ACCOUNT}
+            </div>
+
             <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
 
             <label style={uploadStyle}>
@@ -284,13 +416,11 @@ export default function Checkout() {
           <div style={infoStyle}>
             <strong>الدفع عن طريق Vodafone Cash</strong>
 
-          <p>
-  رقم Vodafone Cash:
-</p>
+            <p>رقم Vodafone Cash:</p>
 
-<div style={numberStyle}>
-  {VODAFONE_CASH_NUMBER}
-</div>
+            <div style={numberStyle}>
+              {VODAFONE_CASH_NUMBER}
+            </div>
 
             <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
 
@@ -358,6 +488,12 @@ const inputStyle = {
   boxSizing: "border-box",
 };
 
+const labelStyle = {
+  display: "block",
+  marginBottom: "6px",
+  fontWeight: "600",
+};
+
 const paymentStyle = {
   display: "block",
   padding: "14px",
@@ -365,6 +501,15 @@ const paymentStyle = {
   cursor: "pointer",
   border: "1px solid #ddd",
   borderRadius: "8px",
+};
+
+const summaryStyle = {
+  background: "linear-gradient(135deg, #fffaf3, #f5eadb)",
+  padding: "20px",
+  borderRadius: "14px",
+  marginBottom: "25px",
+  border: "1px solid #d8c3a5",
+  color: "#3d3025",
 };
 
 const infoStyle = {
@@ -377,6 +522,7 @@ const infoStyle = {
   textAlign: "center",
   boxShadow: "0 5px 15px rgba(80, 55, 30, 0.10)",
 };
+
 const numberStyle = {
   background: "#fff",
   color: "#8a6842",
@@ -402,6 +548,8 @@ const uploadStyle = {
   borderRadius: "8px",
   cursor: "pointer",
 };
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 namespace AccessoriesStore.Api.Models;
 
 public class Order
@@ -11,10 +12,18 @@ public class Order
     public string ShippingAddress { get; set; } = string.Empty;
     public string? Notes { get; set; }
 
+    // مصاريف الشحن
+    public decimal ShippingCost { get; set; }
+
+    // الإجمالي النهائي شامل الشحن
+    public decimal FinalTotal { get; set; }
+
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.CashOnDelivery;
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
+    // إجمالي المنتجات قبل الشحن
     public decimal Total { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // إثبات الدفع
@@ -43,3 +52,4 @@ public class OrderItem
     public decimal Price { get; set; }
     public int Quantity { get; set; }
 }
+
