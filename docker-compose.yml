@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: accessoriesstore
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ChangeMe123}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=accessoriesstore;Username=postgres;Password=${DB_PASSWORD:-ChangeMe123}"
+      Jwt__Key: ${JWT_KEY:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_AT_LEAST_32_CHARS}
+      Jwt__Issuer: AccessoriesStoreApi
+      Jwt__Audience: AccessoriesStoreClient
+      Cors__AllowedOrigins__0: "https://generations-gmc-portrait-moss.trycloudflare.com"
+      Paymob__ApiKey: ${PAYMOB_API_KEY:-CHANGE_ME}
+      Paymob__IntegrationId: ${PAYMOB_INTEGRATION_ID:-CHANGE_ME}
+      Paymob__IframeId: ${PAYMOB_IFRAME_ID:-CHANGE_ME}
+      AdminSeed__Email: ${ADMIN_EMAIL:-admin@laale.com}
+      AdminSeed__Password: ${ADMIN_PASSWORD:-ChangeMe123!}
+    ports:
+      - "5000:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://eminem-normally-dynamic-prev.trycloudflare.com/api
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5180:80"
+
+volumes:
+  db_data:
