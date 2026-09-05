@@ -17,7 +17,11 @@ public class Order
     public decimal Total { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Paymob tracking
+    // إثبات الدفع
+    public byte[]? PaymentProof { get; set; }
+    public string? PaymentProofContentType { get; set; }
+
+    // Paymob tracking - موجودين للحفاظ على توافق قاعدة البيانات القديمة
     public string? PaymobOrderId { get; set; }
     public string? PaymobTransactionId { get; set; }
 
@@ -34,7 +38,7 @@ public class OrderItem
     public int ProductId { get; set; }
     public Product? Product { get; set; }
 
-    // Snapshot of name/price at time of order, so later price edits don't change history
+    // Snapshot of name/price at time of order
     public string ProductName { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public int Quantity { get; set; }

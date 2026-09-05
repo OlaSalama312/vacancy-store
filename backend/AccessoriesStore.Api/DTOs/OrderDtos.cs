@@ -1,16 +1,33 @@
+using Microsoft.AspNetCore.Http;
+
 namespace AccessoriesStore.Api.DTOs;
 
-public record OrderItemRequest(int ProductId, int Quantity);
-
-public record CreateOrderRequest(
-    List<OrderItemRequest> Items,
-    string ShippingCity,
-    string ShippingAddress,
-    string? Notes,
-    string PaymentMethod // "card" | "cod"
+public record OrderItemRequest(
+    int ProductId,
+    int Quantity
 );
 
-public record OrderItemDto(int ProductId, string ProductName, decimal Price, int Quantity);
+public class CreateOrderRequest
+{
+    public List<OrderItemRequest> Items { get; set; } = new();
+
+    public string ShippingCity { get; set; } = string.Empty;
+
+    public string ShippingAddress { get; set; } = string.Empty;
+
+    public string? Notes { get; set; }
+
+    public string PaymentMethod { get; set; } = string.Empty;
+
+    public IFormFile? PaymentProof { get; set; }
+}
+
+public record OrderItemDto(
+    int ProductId,
+    string ProductName,
+    decimal Price,
+    int Quantity
+);
 
 public record OrderDto(
     int Id,
@@ -21,7 +38,17 @@ public record OrderDto(
     List<OrderItemDto> Items
 );
 
-public record UpdateOrderStatusRequest(string Status);
+public record UpdateOrderStatusRequest(
+    string Status
+);
 
-public record InitiatePaymentRequest(int OrderId);
-public record InitiatePaymentResponse(string PaymentUrl);
+public record InitiatePaymentRequest(
+    int OrderId
+);
+
+public record InitiatePaymentResponse(
+    string PaymentUrl
+);
+
+
+

@@ -26,19 +26,29 @@ public class OrdersController : ControllerBase
         ?? throw new UnauthorizedAccessException();
 
     [HttpPost]
-    public async Task<ActionResult<OrderDto>> Create(CreateOrderRequest req)
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<ActionResult<OrderDto>> Create(
+        [FromForm] CreateOrderRequest req)
     {
         if (req.Items == null || req.Items.Count == 0)
-            return BadRequest(new { message = "السلة فاضية" });
+            return BadRequest(new
+            {
+                message = "السلة فاضية"
+            });
 
-        var productIds = req.Items.Select(i => i.ProductId).ToList();
+        var productIds = req.Items
+            .Select(i => i.ProductId)
+            .ToList();
 
         var products = await _db.Products
             .Where(p => productIds.Contains(p.Id))
             .ToListAsync();
 
         if (products.Count != productIds.Distinct().Count())
-            return BadRequest(new { message = "في منتج مش موجود في السلة" });
+            return BadRequest(new
+            {
+                message = "في منتج مش موجود في السلة"
+            });
 
         PaymentMethod paymentMethod;
 
@@ -57,7 +67,52 @@ public class OrdersController : ControllerBase
                 break;
 
             default:
-                return BadRequest(new { message = "طريقة الدفع غير صحيحة" });
+                return BadRequest(new
+                {
+                    message = "طريقة الدفع غير صحيحة"
+                });
+        }
+
+        // إثبات الدفع مطلوب فقط في InstaPay و Vodafone Cash
+        if (
+            (paymentMethod == PaymentMethod.InstaPay ||
+             paymentMethod == PaymentMethod.VodafoneCash) &&
+            req.PaymentProof == null
+        )
+        {
+            return BadRequest(new
+            {
+                message = "من فضلك ارفعي صورة إثبات التحويل"
+            });
+        }
+
+        // التأكد إن الملف صورة
+        if (req.PaymentProof != null)
+        {
+            var allowedTypes = new[]
+            {
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+            };
+
+            if (!allowedTypes.Contains(
+                    req.PaymentProof.ContentType.ToLower()))
+            {
+                return BadRequest(new
+                {
+                    message = "مسموح فقط بصور JPG أو PNG أو WEBP"
+                });
+            }
+
+            // الحد الأقصى 10 MB
+            if (req.PaymentProof.Length > 10 * 1024 * 1024)
+            {
+                return BadRequest(new
+                {
+                    message = "حجم الصورة يجب ألا يتجاوز 10 ميجابايت"
+                });
+            }
         }
 
         var order = new Order
@@ -70,9 +125,22 @@ public class OrdersController : ControllerBase
             Status = OrderStatus.Pending
         };
 
+        // حفظ صورة إثبات الدفع داخل قاعدة البيانات
+        if (req.PaymentProof != null)
+        {
+            using var memoryStream = new MemoryStream();
+
+            await req.PaymentProof.CopyToAsync(memoryStream);
+
+            order.PaymentProof = memoryStream.ToArray();
+            order.PaymentProofContentType =
+                req.PaymentProof.ContentType;
+        }
+
         foreach (var item in req.Items)
         {
-            var product = products.First(p => p.Id == item.ProductId);
+            var product = products.First(
+                p => p.Id == item.ProductId);
 
             order.Items.Add(new OrderItem
             {
@@ -83,9 +151,11 @@ public class OrdersController : ControllerBase
             });
         }
 
-        order.Total = order.Items.Sum(i => i.Price * i.Quantity);
+        order.Total = order.Items.Sum(
+            i => i.Price * i.Quantity);
 
         _db.Orders.Add(order);
+
         await _db.SaveChangesAsync();
 
         var user = await _db.Users.FindAsync(CurrentUserId);
@@ -134,4 +204,3 @@ public class OrdersController : ControllerBase
         return Ok(result);
     }
 }
-

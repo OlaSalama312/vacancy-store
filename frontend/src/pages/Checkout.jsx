@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { api } from "../api/client";
@@ -9,6 +10,7 @@ export default function Checkout() {
   const { items, total, clearCart } = useCart();
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentProof, setPaymentProof] = useState(null);
 
   const [form, setForm] = useState({
     city: "",
@@ -28,6 +30,11 @@ export default function Checkout() {
     });
   };
 
+  const handlePaymentProofChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setPaymentProof(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -37,27 +44,47 @@ export default function Checkout() {
       return;
     }
 
+    if (
+      (paymentMethod === "instapay" ||
+        paymentMethod === "vodafone_cash") &&
+      !paymentProof
+    ) {
+      setError("من فضلك ارفعي صورة إثبات التحويل");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const payload = {
-        shippingCity: form.city,
-        shippingAddress: form.address,
-        notes: form.notes || null,
-        paymentMethod,
-        items: items.map((item) => ({
-          productId: item.id,
-          quantity: item.qty,
-        })),
-      };
+      const formData = new FormData();
 
-      const order = await api.createOrder(payload);
+      formData.append("ShippingCity", form.city);
+      formData.append("ShippingAddress", form.address);
+
+      if (form.notes) {
+        formData.append("Notes", form.notes);
+      }
+
+      formData.append("PaymentMethod", paymentMethod);
+
+      items.forEach((item, index) => {
+        formData.append(`Items[${index}].ProductId`, item.id);
+        formData.append(`Items[${index}].Quantity`, item.qty);
+      });
+
+      if (paymentProof) {
+        formData.append("PaymentProof", paymentProof);
+      }
+
+      const order = await api.createOrder(formData);
 
       setOrderId(order.id);
       setSuccess(true);
       clearCart();
     } catch (err) {
-      setError(err.message || "حصل خطأ أثناء تأكيد الطلب");
+      setError(
+        err.message || "حصل خطأ أثناء تأكيد الطلب"
+      );
     } finally {
       setLoading(false);
     }
@@ -89,7 +116,8 @@ export default function Checkout() {
             <h3>الدفع عن طريق InstaPay</h3>
 
             <p>
-              حساب InstaPay: <strong>{INSTAPAY_ACCOUNT}</strong>
+              حساب InstaPay:{" "}
+              <strong>{INSTAPAY_ACCOUNT}</strong>
             </p>
 
             <p>
@@ -201,7 +229,9 @@ export default function Checkout() {
             type="radio"
             value="instapay"
             checked={paymentMethod === "instapay"}
-            onChange={(e) => setPaymentMethod(e.target.value)}
+            onChange={(e) =>
+              setPaymentMethod(e.target.value)
+            }
           />
           InstaPay
         </label>
@@ -211,10 +241,28 @@ export default function Checkout() {
             <strong>الدفع عن طريق InstaPay</strong>
 
             <p>
-              حساب InstaPay: <strong>{INSTAPAY_ACCOUNT}</strong>
+              حساب InstaPay:{" "}
+              <strong>{INSTAPAY_ACCOUNT}</strong>
             </p>
 
             <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
+
+            <label style={uploadStyle}>
+              صورة إثبات التحويل
+
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePaymentProofChange}
+              />
+            </label>
+
+            {paymentProof && (
+              <p>
+                تم اختيار الصورة:{" "}
+                <strong>{paymentProof.name}</strong>
+              </p>
+            )}
           </div>
         )}
 
@@ -223,7 +271,9 @@ export default function Checkout() {
             type="radio"
             value="vodafone_cash"
             checked={paymentMethod === "vodafone_cash"}
-            onChange={(e) => setPaymentMethod(e.target.value)}
+            onChange={(e) =>
+              setPaymentMethod(e.target.value)
+            }
           />
           Vodafone Cash
         </label>
@@ -238,6 +288,23 @@ export default function Checkout() {
             </p>
 
             <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
+
+            <label style={uploadStyle}>
+              صورة إثبات التحويل
+
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePaymentProofChange}
+              />
+            </label>
+
+            {paymentProof && (
+              <p>
+                تم اختيار الصورة:{" "}
+                <strong>{paymentProof.name}</strong>
+              </p>
+            )}
           </div>
         )}
 
@@ -246,7 +313,9 @@ export default function Checkout() {
             type="radio"
             value="cod"
             checked={paymentMethod === "cod"}
-            onChange={(e) => setPaymentMethod(e.target.value)}
+            onChange={(e) =>
+              setPaymentMethod(e.target.value)
+            }
           />
           الدفع عند الاستلام
         </label>
@@ -268,7 +337,9 @@ export default function Checkout() {
             fontSize: "16px",
           }}
         >
-          {loading ? "جاري تأكيد الطلب..." : "تأكيد الطلب"}
+          {loading
+            ? "جاري تأكيد الطلب..."
+            : "تأكيد الطلب"}
         </button>
       </form>
     </div>
@@ -298,5 +369,17 @@ const infoStyle = {
   borderRadius: "8px",
   background: "#fafafa",
 };
+
+const uploadStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+  padding: "12px",
+  marginTop: "12px",
+  border: "1px dashed #999",
+  borderRadius: "8px",
+  cursor: "pointer",
+};
+
 
 

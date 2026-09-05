@@ -6,7 +6,10 @@ function getToken() {
 }
 
 async function request(path, { method = "GET", body, auth = false } = {}) {
-  const headers = { "Content-Type": "application/json" };
+  const headers = { };
+    if (!(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
   if (auth) {
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
