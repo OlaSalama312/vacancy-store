@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, getAdminPaymentProof } from "../api/client";
 
 const statusOptions = [
   "Pending",
@@ -59,6 +59,7 @@ export default function AdminDashboard() {
 function OrdersTab() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openingProof, setOpeningProof] = useState(null);
 
   useEffect(() => {
     load();
@@ -83,6 +84,28 @@ function OrdersTab() {
       load();
     } catch (error) {
       alert(error.message || "حصل خطأ أثناء تغيير حالة الطلب");
+    }
+  }
+
+  async function openPaymentProof(orderId) {
+    try {
+      setOpeningProof(orderId);
+
+      const blob = await getAdminPaymentProof(orderId);
+
+      const imageUrl = URL.createObjectURL(blob);
+
+      window.open(imageUrl, "_blank");
+
+      // نسيب الـ URL شغال شوية عشان الصورة تفتح
+      setTimeout(() => {
+        URL.revokeObjectURL(imageUrl);
+      }, 60000);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "تعذر تحميل إثبات الدفع");
+    } finally {
+      setOpeningProof(null);
     }
   }
 
@@ -188,23 +211,32 @@ function OrdersTab() {
                 {/* إثبات الدفع */}
                 <td>
                   {o.paymentProofUrl ? (
-                    <a
-                      href={o.paymentProofUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => openPaymentProof(o.id)}
+                      disabled={openingProof === o.id}
                       style={{
                         display: "inline-block",
                         padding: "8px 12px",
                         borderRadius: "8px",
-                        background: "#8a6842",
+                        background:
+                          openingProof === o.id
+                            ? "#aaa"
+                            : "#8a6842",
                         color: "#fff",
-                        textDecoration: "none",
+                        border: "none",
+                        cursor:
+                          openingProof === o.id
+                            ? "wait"
+                            : "pointer",
                         fontWeight: "700",
                         whiteSpace: "nowrap",
                       }}
                     >
-                      📷 عرض الإثبات
-                    </a>
+                      {openingProof === o.id
+                        ? "جاري الفتح..."
+                        : "📷 عرض الإثبات"}
+                    </button>
                   ) : (
                     <span
                       style={{
@@ -278,6 +310,10 @@ function ProductsTab() {
     api
       .getProducts()
       .then(setProducts)
+      .catch((error) => {
+        console.error(error);
+        alert(error.message || "حصل خطأ أثناء تحميل المنتجات");
+      })
       .finally(() => setLoading(false));
   }
 
