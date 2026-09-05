@@ -5,8 +5,10 @@ function getToken() {
   return localStorage.getItem("auth_token");
 }
 
-
-async function request(path, { method = "GET", body, auth = false } = {}) {
+async function request(
+  path,
+  { method = "GET", body, auth = false } = {}
+) {
   const headers = {};
   const isFormData = body instanceof FormData;
 
@@ -16,6 +18,7 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
 
   if (auth) {
     const token = getToken();
+
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
@@ -38,48 +41,155 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
       const data = await res.json();
       message = data.message || data.title || message;
     } catch {
-      /* ignore */
+      // ignore
     }
 
     throw new Error(message);
   }
 
-  if (res.status === 204) return null;
+  if (res.status === 204) {
+    return null;
+  }
 
   return res.json();
 }
 
+// =====================================================
+// جلب إثبات الدفع للـ Admin مع Authorization Token
+// =====================================================
 
+export async function getAdminPaymentProof(orderId) {
+  const token = getToken();
+
+  const res = await fetch(
+    `${BASE_URL}/admin/orders/${orderId}/payment-proof`,
+    {
+      method: "GET",
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : {},
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("تعذر تحميل إثبات الدفع");
+  }
+
+  return await res.blob();
+}
+
+// =====================================================
+// API
+// =====================================================
 
 export const api = {
-  // ---- Auth ----
-  register: (payload) => request("/auth/register", { method: "POST", body: payload }),
-  login: (payload) => request("/auth/login", { method: "POST", body: payload }),
+  // -------------------------
+  // Auth
+  // -------------------------
 
-  // ---- Catalog ----
-  getCategories: () => request("/categories"),
+  register: (payload) =>
+    request("/auth/register", {
+      method: "POST",
+      body: payload,
+    }),
+
+  login: (payload) =>
+    request("/auth/login", {
+      method: "POST",
+      body: payload,
+    }),
+
+  // -------------------------
+  // Catalog
+  // -------------------------
+
+  getCategories: () =>
+    request("/categories"),
+
   getProducts: (categorySlug) =>
-    request(`/products${categorySlug ? `?category=${categorySlug}` : ""}`),
-  getProduct: (id) => request(`/products/${id}`),
+    request(
+      `/products${
+        categorySlug
+          ? `?category=${categorySlug}`
+          : ""
+      }`
+    ),
 
-  // ---- Orders (customer) ----
-  createOrder: (payload) => request("/orders", { method: "POST", body: payload, auth: true }),
-  getMyOrders: () => request("/orders/mine", { auth: true }),
+  getProduct: (id) =>
+    request(`/products/${id}`),
 
-  // ---- Payment ----
+  // -------------------------
+  // Orders - Customer
+  // -------------------------
+
+  createOrder: (payload) =>
+    request("/orders", {
+      method: "POST",
+      body: payload,
+      auth: true,
+    }),
+
+  getMyOrders: () =>
+    request("/orders/mine", {
+      auth: true,
+    }),
+
+  // -------------------------
+  // Payment
+  // -------------------------
+
   startPayment: (orderId) =>
-    request(`/payments/paymob/initiate`, { method: "POST", body: { orderId }, auth: true }),
+    request("/payments/paymob/initiate", {
+      method: "POST",
+      body: {
+        orderId,
+      },
+      auth: true,
+    }),
 
-  // ---- Admin ----
-  adminGetOrders: () => request("/admin/orders", { auth: true }),
+  // -------------------------
+  // Admin - Orders
+  // -------------------------
+
+  adminGetOrders: () =>
+    request("/admin/orders", {
+      auth: true,
+    }),
+
   adminUpdateOrderStatus: (orderId, status) =>
-    request(`/admin/orders/${orderId}/status`, { method: "PUT", body: { status }, auth: true }),
+    request(`/admin/orders/${orderId}/status`, {
+      method: "PUT",
+      body: {
+        status,
+      },
+      auth: true,
+    }),
+
+  // -------------------------
+  // Admin - Products
+  // -------------------------
+
   adminCreateProduct: (payload) =>
-    request("/admin/products", { method: "POST", body: payload, auth: true }),
+    request("/admin/products", {
+      method: "POST",
+      body: payload,
+      auth: true,
+    }),
+
   adminUpdateProduct: (id, payload) =>
-    request(`/admin/products/${id}`, { method: "PUT", body: payload, auth: true }),
+    request(`/admin/products/${id}`, {
+      method: "PUT",
+      body: payload,
+      auth: true,
+    }),
+
   adminDeleteProduct: (id) =>
-    request(`/admin/products/${id}`, { method: "DELETE", auth: true }),
+    request(`/admin/products/${id}`, {
+      method: "DELETE",
+      auth: true,
+    }),
 };
 
 export { getToken };
