@@ -28,10 +28,9 @@ export default function Checkout() {
         paymentMethod,
       });
 
-      if (paymentMethod === "card") {
-        const { paymentUrl } = await api.startPayment(order.id);
-        window.location.href = paymentUrl; // بيوديها لصفحة الدفع بتاعة Paymob
-      } else {
+if (paymentMethod === "card") {
+  window.location.href = order.paymentUrl;
+} else {
         clearCart();
         navigate("/account");
       }
