@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { api } from "../api/client";
@@ -76,8 +75,16 @@ export default function Checkout() {
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState(null);
 
+  // إجماليات الصفحة الحالية
   const shippingCost = getShippingCost(form.city);
   const finalTotal = total + shippingCost;
+
+  // نحفظ إجماليات الطلب قبل clearCart
+  const [completedOrder, setCompletedOrder] = useState({
+    productsTotal: 0,
+    shippingCost: 0,
+    finalTotal: 0,
+  });
 
   const handleChange = (e) => {
     setForm({
@@ -122,6 +129,11 @@ export default function Checkout() {
     setLoading(true);
 
     try {
+      const productsTotal = Number(total);
+      const selectedShippingCost = Number(shippingCost);
+      const selectedFinalTotal =
+        productsTotal + selectedShippingCost;
+
       const formData = new FormData();
 
       // بيانات الشحن
@@ -129,30 +141,68 @@ export default function Checkout() {
       formData.append("ShippingAddress", form.address);
 
       // مصاريف الشحن
-      formData.append("ShippingCost", shippingCost);
+      formData.append(
+        "ShippingCost",
+        String(selectedShippingCost)
+      );
 
       // الإجمالي النهائي
-      formData.append("FinalTotal", finalTotal);
+      formData.append(
+        "FinalTotal",
+        String(selectedFinalTotal)
+      );
 
+      // الملاحظات
       if (form.notes) {
         formData.append("Notes", form.notes);
       }
 
+      // طريقة الدفع
       formData.append("PaymentMethod", paymentMethod);
 
+      // المنتجات
       items.forEach((item, index) => {
-        formData.append(`Items[${index}].ProductId`, item.id);
-        formData.append(`Items[${index}].Quantity`, item.qty);
+        formData.append(
+          `Items[${index}].ProductId`,
+          String(item.id)
+        );
+
+        formData.append(
+          `Items[${index}].Quantity`,
+          String(item.qty)
+        );
       });
 
+      // إثبات الدفع
       if (paymentProof) {
         formData.append("PaymentProof", paymentProof);
       }
 
       const order = await api.createOrder(formData);
 
+      // نستخدم القيمة اللي رجعها الـBackend لو موجودة
+      const backendProductsTotal =
+        Number(order.total ?? productsTotal);
+
+      const backendShippingCost =
+        Number(order.shippingCost ?? selectedShippingCost);
+
+      const backendFinalTotal =
+        Number(
+          order.finalTotal ??
+            (backendProductsTotal + backendShippingCost)
+        );
+
+      // نحفظ بيانات الطلب قبل مسح السلة
+      setCompletedOrder({
+        productsTotal: backendProductsTotal,
+        shippingCost: backendShippingCost,
+        finalTotal: backendFinalTotal,
+      });
+
       setOrderId(order.id);
       setSuccess(true);
+
       clearCart();
     } catch (err) {
       setError(
@@ -162,6 +212,8 @@ export default function Checkout() {
       setLoading(false);
     }
   };
+
+  // ---------- صفحة نجاح الطلب ----------
 
   if (success) {
     return (
@@ -181,19 +233,34 @@ export default function Checkout() {
         </p>
 
         <div style={summaryStyle}>
+          <h3>ملخص الطلب</h3>
+
           <p>
-            قيمة المنتجات: <strong>{total} جنيه</strong>
+            قيمة المنتجات:{" "}
+            <strong>
+              {completedOrder.productsTotal} جنيه
+            </strong>
           </p>
 
           <p>
-            مصاريف الشحن: <strong>{shippingCost} جنيه</strong>
+            مصاريف الشحن:{" "}
+            <strong>
+              {completedOrder.shippingCost} جنيه
+            </strong>
           </p>
 
           <hr />
 
-          <p style={{ fontSize: "20px" }}>
+          <p
+            style={{
+              fontSize: "22px",
+              fontWeight: "700",
+            }}
+          >
             الإجمالي النهائي:{" "}
-            <strong>{finalTotal} جنيه</strong>
+            <strong>
+              {completedOrder.finalTotal} جنيه
+            </strong>
           </p>
         </div>
 
@@ -232,12 +299,17 @@ export default function Checkout() {
         {paymentMethod === "cod" && (
           <div style={infoStyle}>
             <h3>الدفع عند الاستلام</h3>
-            <p>هتدفعي قيمة الطلب عند استلامه.</p>
+
+            <p>
+              هتدفعي قيمة الطلب عند استلامه.
+            </p>
           </div>
         )}
       </div>
     );
   }
+
+  // ---------- صفحة Checkout ----------
 
   return (
     <div
@@ -267,22 +339,33 @@ export default function Checkout() {
       <div style={summaryStyle}>
         <h3>ملخص الطلب</h3>
 
-        <p>عدد المنتجات: {items.length}</p>
+        <p>
+          عدد المنتجات: <strong>{items.length}</strong>
+        </p>
 
         <p>
-          قيمة المنتجات: <strong>{total} جنيه</strong>
+          قيمة المنتجات:{" "}
+          <strong>{total} جنيه</strong>
         </p>
 
         <p>
           مصاريف الشحن:{" "}
           <strong>
-            {shippingCost > 0 ? `${shippingCost} جنيه` : "اختاري المنطقة"}
+            {shippingCost > 0
+              ? `${shippingCost} جنيه`
+              : "اختاري المنطقة"}
           </strong>
         </p>
 
         <hr />
 
-        <p style={{ fontSize: "20px" }}>
+        <p
+          style={{
+            fontSize: "22px",
+            fontWeight: "700",
+            marginTop: "15px",
+          }}
+        >
           الإجمالي النهائي:{" "}
           <strong>
             {finalTotal} جنيه
@@ -303,7 +386,9 @@ export default function Checkout() {
           disabled
           style={inputStyle}
         >
-          <option value="القاهرة">القاهرة</option>
+          <option value="القاهرة">
+            القاهرة
+          </option>
         </select>
 
         <label style={labelStyle}>
@@ -379,7 +464,9 @@ export default function Checkout() {
               {INSTAPAY_ACCOUNT}
             </div>
 
-            <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
+            <p>
+              بعد التحويل، احتفظي بإثبات الدفع.
+            </p>
 
             <label style={uploadStyle}>
               صورة إثبات التحويل
@@ -404,7 +491,9 @@ export default function Checkout() {
           <input
             type="radio"
             value="vodafone_cash"
-            checked={paymentMethod === "vodafone_cash"}
+            checked={
+              paymentMethod === "vodafone_cash"
+            }
             onChange={(e) =>
               setPaymentMethod(e.target.value)
             }
@@ -414,7 +503,9 @@ export default function Checkout() {
 
         {paymentMethod === "vodafone_cash" && (
           <div style={infoStyle}>
-            <strong>الدفع عن طريق Vodafone Cash</strong>
+            <strong>
+              الدفع عن طريق Vodafone Cash
+            </strong>
 
             <p>رقم Vodafone Cash:</p>
 
@@ -422,7 +513,9 @@ export default function Checkout() {
               {VODAFONE_CASH_NUMBER}
             </div>
 
-            <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
+            <p>
+              بعد التحويل، احتفظي بإثبات الدفع.
+            </p>
 
             <label style={uploadStyle}>
               صورة إثبات التحويل
@@ -457,7 +550,9 @@ export default function Checkout() {
 
         {paymentMethod === "cod" && (
           <div style={infoStyle}>
-            <p>هتدفعي قيمة الطلب عند استلامه.</p>
+            <p>
+              هتدفعي قيمة الطلب عند استلامه.
+            </p>
           </div>
         )}
 
@@ -468,7 +563,9 @@ export default function Checkout() {
             width: "100%",
             padding: "14px",
             marginTop: "20px",
-            cursor: loading ? "not-allowed" : "pointer",
+            cursor: loading
+              ? "not-allowed"
+              : "pointer",
             fontSize: "16px",
           }}
         >
@@ -504,7 +601,8 @@ const paymentStyle = {
 };
 
 const summaryStyle = {
-  background: "linear-gradient(135deg, #fffaf3, #f5eadb)",
+  background:
+    "linear-gradient(135deg, #fffaf3, #f5eadb)",
   padding: "20px",
   borderRadius: "14px",
   marginBottom: "25px",
@@ -517,10 +615,12 @@ const infoStyle = {
   marginBottom: "15px",
   border: "1px solid #d8c3a5",
   borderRadius: "14px",
-  background: "linear-gradient(135deg, #fffaf3, #f5eadb)",
+  background:
+    "linear-gradient(135deg, #fffaf3, #f5eadb)",
   color: "#3d3025",
   textAlign: "center",
-  boxShadow: "0 5px 15px rgba(80, 55, 30, 0.10)",
+  boxShadow:
+    "0 5px 15px rgba(80, 55, 30, 0.10)",
 };
 
 const numberStyle = {
@@ -534,7 +634,8 @@ const numberStyle = {
   direction: "ltr",
   display: "inline-block",
   border: "2px solid #d8c3a5",
-  boxShadow: "0 3px 10px rgba(80, 55, 30, 0.12)",
+  boxShadow:
+    "0 3px 10px rgba(80, 55, 30, 0.12)",
   margin: "5px 0 10px",
 };
 
