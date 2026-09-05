@@ -41,16 +41,23 @@ function OrdersTab() {
 
   return (
     <table className="admin-table">
-      <thead>
-        <tr><th>رقم الطلب</th><th>العميل</th><th>الإجمالي</th><th>الحالة</th></tr>
-      </thead>
+   <thead>
+  <tr>
+    <th>رقم الطلب</th>
+    <th>العميل</th>
+    <th>الإجمالي</th>
+    <th>الملاحظة</th>
+    <th>الحالة</th>
+  </tr>
+</thead>
       <tbody>
         {orders.map((o) => (
           <tr key={o.id}>
-            <td>#{o.id}</td>
-            <td>{o.customerName}</td>
-            <td>{o.total} ج.م</td>
-            <td>
+          <td>#{o.id}</td>
+<td>{o.customerName}</td>
+<td>{o.total} ج.م</td>
+<td>{o.notes || "لا توجد ملاحظة"}</td>
+<td>
               <select value={o.status} onChange={(e) => changeStatus(o.id, e.target.value)}>
                 {statusOptions.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
               </select>
