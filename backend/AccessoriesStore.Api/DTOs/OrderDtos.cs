@@ -1,4 +1,3 @@
-
 using Microsoft.AspNetCore.Http;
 
 namespace AccessoriesStore.Api.DTOs;
@@ -43,6 +42,8 @@ public record OrderDto(
     decimal FinalTotal,
     DateTime CreatedAt,
     string? Notes,
+    string PaymentMethod,
+    string? PaymentProofUrl,
     List<OrderItemDto> Items
 );
 
@@ -57,7 +58,6 @@ public record InitiatePaymentRequest(
 public record InitiatePaymentResponse(
     string PaymentUrl
 );
-
 
 
 

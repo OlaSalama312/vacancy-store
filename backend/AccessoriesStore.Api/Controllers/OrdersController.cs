@@ -25,6 +25,10 @@ public class OrdersController : ControllerBase
         ?? User.FindFirstValue("sub")
         ?? throw new UnauthorizedAccessException();
 
+    // =========================================
+    // Create Order
+    // =========================================
+
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<ActionResult<OrderDto>> Create(
@@ -77,7 +81,10 @@ public class OrdersController : ControllerBase
                 });
         }
 
-        // إثبات الدفع مطلوب فقط في InstaPay و Vodafone Cash
+        // =========================================
+        // Payment Proof Validation
+        // =========================================
+
         if (
             (paymentMethod == PaymentMethod.InstaPay ||
              paymentMethod == PaymentMethod.VodafoneCash) &&
@@ -89,7 +96,6 @@ public class OrdersController : ControllerBase
             });
         }
 
-        // التأكد إن الملف صورة
         if (req.PaymentProof != null)
         {
             var allowedTypes = new[]
@@ -108,7 +114,6 @@ public class OrdersController : ControllerBase
                 });
             }
 
-            // الحد الأقصى 10 MB
             if (req.PaymentProof.Length > 10 * 1024 * 1024)
             {
                 return BadRequest(new
@@ -118,11 +123,13 @@ public class OrdersController : ControllerBase
             }
         }
 
-        // ==========================================
-        // حساب الشحن حسب منطقة القاهرة
-        // ==========================================
+        // =========================================
+        // Shipping
+        // =========================================
 
-        var shippingCost = GetShippingCost(req.ShippingCity);
+        var shippingCost = GetShippingCost(
+            req.ShippingCity
+        );
 
         if (shippingCost == null)
         {
@@ -132,94 +139,139 @@ public class OrdersController : ControllerBase
             });
         }
 
+        // =========================================
+        // Create Order
+        // =========================================
+
         var order = new Order
         {
             UserId = CurrentUserId,
+
             ShippingCity = req.ShippingCity,
+
             ShippingAddress = req.ShippingAddress,
+
             Notes = req.Notes,
 
-            // سعر الشحن يتم تحديده من الـBackend
             ShippingCost = shippingCost.Value,
 
             PaymentMethod = paymentMethod,
+
             Status = OrderStatus.Pending
         };
 
-        // ==========================================
-        // حفظ صورة إثبات الدفع
-        // ==========================================
+        // =========================================
+        // Save Payment Proof
+        // =========================================
 
         if (req.PaymentProof != null)
         {
             using var memoryStream = new MemoryStream();
 
-            await req.PaymentProof.CopyToAsync(memoryStream);
+            await req.PaymentProof.CopyToAsync(
+                memoryStream
+            );
 
-            order.PaymentProof = memoryStream.ToArray();
+            order.PaymentProof =
+                memoryStream.ToArray();
 
             order.PaymentProofContentType =
                 req.PaymentProof.ContentType;
         }
 
-        // ==========================================
-        // إضافة المنتجات للطلب
-        // ==========================================
+        // =========================================
+        // Order Items
+        // =========================================
 
         foreach (var item in req.Items)
         {
             var product = products.First(
-                p => p.Id == item.ProductId);
+                p => p.Id == item.ProductId
+            );
 
             order.Items.Add(new OrderItem
             {
                 ProductId = product.Id,
+
                 ProductName = product.Name,
+
                 Price = product.Price,
+
                 Quantity = item.Quantity
             });
         }
 
-        // ==========================================
-        // حساب الإجماليات
-        // ==========================================
+        // =========================================
+        // Totals
+        // =========================================
 
-        // إجمالي المنتجات قبل الشحن
         order.Total = order.Items.Sum(
-            i => i.Price * i.Quantity);
+            i => i.Price * i.Quantity
+        );
 
-        // الإجمالي النهائي شامل الشحن
         order.FinalTotal =
             order.Total + order.ShippingCost;
+
+        // =========================================
+        // Save
+        // =========================================
 
         _db.Orders.Add(order);
 
         await _db.SaveChangesAsync();
 
-        var user = await _db.Users.FindAsync(CurrentUserId);
+        // =========================================
+        // User
+        // =========================================
+
+        var user = await _db.Users.FindAsync(
+            CurrentUserId
+        );
+
+        // =========================================
+        // Response
+        // =========================================
+
+        var paymentProofUrl =
+            order.PaymentProof != null
+                ? $"{Request.Scheme}://{Request.Host}/api/admin/orders/{order.Id}/payment-proof"
+                : null;
 
         return Ok(new OrderDto(
             order.Id,
+
             user?.FullName ?? "",
+
             order.Status.ToString(),
+
             order.Total,
+
             order.ShippingCost,
+
             order.FinalTotal,
+
             order.CreatedAt,
+
             order.Notes,
+
+            order.PaymentMethod.ToString(),
+
+            paymentProofUrl,
+
             order.Items
                 .Select(i => new OrderItemDto(
                     i.ProductId,
                     i.ProductName,
                     i.Price,
-                    i.Quantity))
+                    i.Quantity
+                ))
                 .ToList()
         ));
     }
 
-    // ==========================================
-    // طلبات المستخدم
-    // ==========================================
+    // =========================================
+    // My Orders
+    // =========================================
 
     [HttpGet("mine")]
     public async Task<ActionResult<List<OrderDto>>> GetMine()
@@ -231,41 +283,81 @@ public class OrdersController : ControllerBase
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
-        var result = orders.Select(o => new OrderDto(
-            o.Id,
-            o.User?.FullName ?? "",
-            o.Status.ToString(),
-            o.Total,
-            o.ShippingCost,
-            o.FinalTotal,
-            o.CreatedAt,
-            o.Notes,
-            o.Items
-                .Select(i => new OrderItemDto(
-                    i.ProductId,
-                    i.ProductName,
-                    i.Price,
-                    i.Quantity))
-                .ToList()
-        )).ToList();
+        var result = orders.Select(o =>
+            new OrderDto(
+                o.Id,
+
+                o.User?.FullName ?? "",
+
+                o.Status.ToString(),
+
+                o.Total,
+
+                o.ShippingCost,
+
+                o.FinalTotal,
+
+                o.CreatedAt,
+
+                o.Notes,
+
+                o.PaymentMethod.ToString(),
+
+                o.PaymentProof != null
+                    ? $"{Request.Scheme}://{Request.Host}/api/admin/orders/{o.Id}/payment-proof"
+                    : null,
+
+                o.Items
+                    .Select(i => new OrderItemDto(
+                        i.ProductId,
+                        i.ProductName,
+                        i.Price,
+                        i.Quantity
+                    ))
+                    .ToList()
+            )
+        ).ToList();
 
         return Ok(result);
     }
 
-    // ==========================================
-    // تحديد سعر الشحن حسب منطقة القاهرة
-    // ==========================================
+    // =========================================
+    // Shipping Calculation
+    // =========================================
 
-    private static decimal? GetShippingCost(string area)
+    private static decimal? GetShippingCost(
+        string area)
     {
         if (string.IsNullOrWhiteSpace(area))
             return null;
 
         var normalizedArea = area.Trim();
 
-        // ==========================================
-        // مناطق قريبة - 40 جنيه بعد انتهاء العرض
-        // ==========================================
+        // =========================================
+        // Cairo Time
+        // =========================================
+
+        var cairoTime =
+            TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+                DateTime.UtcNow,
+                "Africa/Cairo"
+            );
+
+        var today = cairoTime.Date;
+
+        // =========================================
+        // Free Shipping Period
+        // =========================================
+
+        var freeShippingStart =
+            new DateTime(2026, 9, 9);
+
+        var freeShippingEnd =
+            new DateTime(2026, 12, 31);
+
+        // =========================================
+        // Nearby Areas - 40 EGP
+        // =========================================
 
         var nearbyAreas = new[]
         {
@@ -280,9 +372,9 @@ public class OrdersController : ControllerBase
             "المطرية"
         };
 
-        // ==========================================
-        // مناطق متوسطة - 60 جنيه بعد انتهاء العرض
-        // ==========================================
+        // =========================================
+        // Medium Areas - 60 EGP
+        // =========================================
 
         var mediumAreas = new[]
         {
@@ -293,9 +385,9 @@ public class OrdersController : ControllerBase
             "الزمالك"
         };
 
-        // ==========================================
-        // مناطق بعيدة - 80 جنيه بعد انتهاء العرض
-        // ==========================================
+        // =========================================
+        // Far Areas - 80 EGP
+        // =========================================
 
         var farAreas = new[]
         {
@@ -308,25 +400,10 @@ public class OrdersController : ControllerBase
             "العاصمة الإدارية"
         };
 
-        // ==========================================
-        // الشحن المجاني
-        // من 9 سبتمبر 2026
-        // إلى 31 ديسمبر 2026 شاملًا
-        // ==========================================
-
-        var cairoTime =
-            TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-                DateTime.UtcNow,
-                "Africa/Cairo"
-            );
-
-        var today = cairoTime.Date;
-
-        var freeShippingStart =
-            new DateTime(2026, 9, 9);
-
-        var freeShippingEnd =
-            new DateTime(2026, 12, 31);
+        // =========================================
+        // Free Shipping
+        // 09/09/2026 -> 31/12/2026
+        // =========================================
 
         if (
             today >= freeShippingStart &&
@@ -345,9 +422,9 @@ public class OrdersController : ControllerBase
             return null;
         }
 
-        // ==========================================
-        // بعد انتهاء العرض
-        // ==========================================
+        // =========================================
+        // Normal Shipping
+        // =========================================
 
         if (nearbyAreas.Contains(normalizedArea))
             return 40m;

@@ -1,4 +1,3 @@
-
 using AccessoriesStore.Api.Data;
 using AccessoriesStore.Api.DTOs;
 using AccessoriesStore.Api.Models;
@@ -15,9 +14,14 @@ public class AdminController : ControllerBase
 {
     private readonly AppDbContext _db;
 
-    public AdminController(AppDbContext db) => _db = db;
+    public AdminController(AppDbContext db)
+    {
+        _db = db;
+    }
 
-    // ---------- Orders ----------
+    // =========================================
+    // Orders
+    // =========================================
 
     [HttpGet("orders")]
     public async Task<ActionResult<List<OrderDto>>> GetAllOrders()
@@ -37,6 +41,10 @@ public class AdminController : ControllerBase
             o.FinalTotal,
             o.CreatedAt,
             o.Notes,
+            o.PaymentMethod.ToString(),
+            o.PaymentProof != null
+                ? $"{Request.Scheme}://{Request.Host}/api/admin/orders/{o.Id}/payment-proof"
+                : null,
             o.Items.Select(i => new OrderItemDto(
                 i.ProductId,
                 i.ProductName,
@@ -48,6 +56,43 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    // =========================================
+    // Payment Proof
+    // =========================================
+
+    [HttpGet("orders/{id:int}/payment-proof")]
+    public async Task<IActionResult> GetPaymentProof(int id)
+    {
+        var order = await _db.Orders
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order == null)
+        {
+            return NotFound(new
+            {
+                message = "الطلب مش موجود"
+            });
+        }
+
+        if (order.PaymentProof == null)
+        {
+            return NotFound(new
+            {
+                message = "لا يوجد إثبات دفع لهذا الطلب"
+            });
+        }
+
+        return File(
+            order.PaymentProof,
+            order.PaymentProofContentType ?? "image/jpeg"
+        );
+    }
+
+    // =========================================
+    // Update Order Status
+    // =========================================
+
     [HttpPut("orders/{id:int}/status")]
     public async Task<IActionResult> UpdateStatus(
         int id,
@@ -56,7 +101,12 @@ public class AdminController : ControllerBase
         var order = await _db.Orders.FindAsync(id);
 
         if (order == null)
-            return NotFound(new { message = "الطلب مش موجود" });
+        {
+            return NotFound(new
+            {
+                message = "الطلب مش موجود"
+            });
+        }
 
         if (!Enum.TryParse<OrderStatus>(
                 req.Status,
@@ -76,7 +126,9 @@ public class AdminController : ControllerBase
         return NoContent();
     }
 
-    // ---------- Products ----------
+    // =========================================
+    // Products
+    // =========================================
 
     [HttpPost("products")]
     [Consumes("multipart/form-data")]
@@ -88,10 +140,12 @@ public class AdminController : ControllerBase
             .FirstOrDefaultAsync(c => c.Slug == req.Category);
 
         if (category == null)
+        {
             return BadRequest(new
             {
                 message = "القسم مش موجود"
             });
+        }
 
         var product = new Product
         {
@@ -105,11 +159,27 @@ public class AdminController : ControllerBase
 
         if (req.Image != null)
         {
-            if (!req.Image.ContentType.StartsWith("image/"))
+            var allowedTypes = new[]
+            {
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+            };
+
+            if (!allowedTypes.Contains(
+                    req.Image.ContentType.ToLower()))
             {
                 return BadRequest(new
                 {
-                    message = "من فضلك اختاري صورة فقط"
+                    message = "مسموح فقط بصور JPG أو PNG أو WEBP"
+                });
+            }
+
+            if (req.Image.Length > 10 * 1024 * 1024)
+            {
+                return BadRequest(new
+                {
+                    message = "حجم الصورة يجب ألا يتجاوز 10 ميجابايت"
                 });
             }
 
@@ -174,14 +244,29 @@ public class AdminController : ControllerBase
         product.OldPrice = req.OldPrice;
         product.CategoryId = category.Id;
 
-        // لو اختار صورة جديدة، نستبدل الصورة القديمة
         if (req.Image != null)
         {
-            if (!req.Image.ContentType.StartsWith("image/"))
+            var allowedTypes = new[]
+            {
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+            };
+
+            if (!allowedTypes.Contains(
+                    req.Image.ContentType.ToLower()))
             {
                 return BadRequest(new
                 {
-                    message = "من فضلك اختاري صورة فقط"
+                    message = "مسموح فقط بصور JPG أو PNG أو WEBP"
+                });
+            }
+
+            if (req.Image.Length > 10 * 1024 * 1024)
+            {
+                return BadRequest(new
+                {
+                    message = "حجم الصورة يجب ألا يتجاوز 10 ميجابايت"
                 });
             }
 
@@ -212,8 +297,6 @@ public class AdminController : ControllerBase
             });
         }
 
-        // Soft delete عشان الطلبات القديمة اللي بتشاور
-        // على المنتج ده متتأثرش
         product.IsActive = false;
 
         await _db.SaveChangesAsync();
@@ -221,6 +304,5 @@ public class AdminController : ControllerBase
         return NoContent();
     }
 }
-
 
 
