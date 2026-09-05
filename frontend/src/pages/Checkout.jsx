@@ -240,11 +240,13 @@ export default function Checkout() {
           <div style={infoStyle}>
             <strong>الدفع عن طريق InstaPay</strong>
 
-            <p>
-              حساب InstaPay:{" "}
-              <strong>{INSTAPAY_ACCOUNT}</strong>
-            </p>
+          <p>
+  حساب InstaPay:
+</p>
 
+<div style={numberStyle}>
+  {INSTAPAY_ACCOUNT}
+</div>
             <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
 
             <label style={uploadStyle}>
@@ -282,10 +284,13 @@ export default function Checkout() {
           <div style={infoStyle}>
             <strong>الدفع عن طريق Vodafone Cash</strong>
 
-            <p>
-              رقم Vodafone Cash:{" "}
-              <strong>{VODAFONE_CASH_NUMBER}</strong>
-            </p>
+          <p>
+  رقم Vodafone Cash:
+</p>
+
+<div style={numberStyle}>
+  {VODAFONE_CASH_NUMBER}
+</div>
 
             <p>بعد التحويل، احتفظي بإثبات الدفع.</p>
 
@@ -363,11 +368,28 @@ const paymentStyle = {
 };
 
 const infoStyle = {
-  padding: "15px",
+  padding: "20px",
   marginBottom: "15px",
-  border: "1px solid #ddd",
-  borderRadius: "8px",
-  background: "#fafafa",
+  border: "1px solid #d8c3a5",
+  borderRadius: "14px",
+  background: "linear-gradient(135deg, #fffaf3, #f5eadb)",
+  color: "#3d3025",
+  textAlign: "center",
+  boxShadow: "0 5px 15px rgba(80, 55, 30, 0.10)",
+};
+const numberStyle = {
+  background: "#fff",
+  color: "#8a6842",
+  padding: "12px 22px",
+  borderRadius: "10px",
+  fontSize: "24px",
+  fontWeight: "800",
+  letterSpacing: "1.5px",
+  direction: "ltr",
+  display: "inline-block",
+  border: "2px solid #d8c3a5",
+  boxShadow: "0 3px 10px rgba(80, 55, 30, 0.12)",
+  margin: "5px 0 10px",
 };
 
 const uploadStyle = {
