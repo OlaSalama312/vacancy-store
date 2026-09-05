@@ -1,3 +1,4 @@
+
 using AccessoriesStore.Api.Data;
 using AccessoriesStore.Api.DTOs;
 using AccessoriesStore.Api.Models;
@@ -33,6 +34,7 @@ public class AdminController : ControllerBase
             o.Status.ToString(),
             o.Total,
             o.CreatedAt,
+            o.Notes,
             o.Items.Select(i => new OrderItemDto(
                 i.ProductId,
                 i.ProductName,
@@ -104,9 +106,9 @@ public class AdminController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-      var imageUrl = product.ImageData != null
-    ? $"{Request.Scheme}://{Request.Host}/api/products/{product.Id}/image"
-    : "";
+        var imageUrl = product.ImageData != null
+            ? $"{Request.Scheme}://{Request.Host}/api/products/{product.Id}/image"
+            : "";
 
         return Ok(new ProductDto(
             product.Id,
@@ -178,3 +180,4 @@ public class AdminController : ControllerBase
         return NoContent();
     }
 }
+

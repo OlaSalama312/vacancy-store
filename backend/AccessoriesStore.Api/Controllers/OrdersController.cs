@@ -115,15 +115,15 @@ public class OrdersController : ControllerBase
             }
         }
 
-        var order = new Order
-        {
-            UserId = CurrentUserId,
-            ShippingCity = req.ShippingCity,
-            ShippingAddress = req.ShippingAddress,
-            Notes = req.Notes,
-            PaymentMethod = paymentMethod,
-            Status = OrderStatus.Pending
-        };
+      var order = new Order
+{
+    UserId = CurrentUserId,
+    ShippingCity = req.ShippingCity,
+    ShippingAddress = req.ShippingAddress,
+    Notes = req.Notes,
+    PaymentMethod = paymentMethod,
+    Status = OrderStatus.Pending
+};
 
         // حفظ صورة إثبات الدفع داخل قاعدة البيانات
         if (req.PaymentProof != null)
@@ -160,13 +160,14 @@ public class OrdersController : ControllerBase
 
         var user = await _db.Users.FindAsync(CurrentUserId);
 
-        return Ok(new OrderDto(
-            order.Id,
-            user?.FullName ?? "",
-            order.Status.ToString(),
-            order.Total,
-            order.CreatedAt,
-            order.Items
+      return Ok(new OrderDto(
+    order.Id,
+    user?.FullName ?? "",
+    order.Status.ToString(),
+    order.Total,
+    order.CreatedAt,
+    order.Notes,
+    order.Items
                 .Select(i => new OrderItemDto(
                     i.ProductId,
                     i.ProductName,
@@ -186,13 +187,14 @@ public class OrdersController : ControllerBase
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
-        var result = orders.Select(o => new OrderDto(
-            o.Id,
-            o.User?.FullName ?? "",
-            o.Status.ToString(),
-            o.Total,
-            o.CreatedAt,
-            o.Items
+       var result = orders.Select(o => new OrderDto(
+    o.Id,
+    o.User?.FullName ?? "",
+    o.Status.ToString(),
+    o.Total,
+    o.CreatedAt,
+    o.Notes,
+    o.Items
                 .Select(i => new OrderItemDto(
                     i.ProductId,
                     i.ProductName,

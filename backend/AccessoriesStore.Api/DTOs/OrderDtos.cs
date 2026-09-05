@@ -35,6 +35,7 @@ public record OrderDto(
     string Status,
     decimal Total,
     DateTime CreatedAt,
+    string? Notes,
     List<OrderItemDto> Items
 );
 
