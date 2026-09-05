@@ -1,4 +1,3 @@
-
 using System.Security.Claims;
 using AccessoriesStore.Api.Data;
 using AccessoriesStore.Api.DTOs;
@@ -139,12 +138,18 @@ public class OrdersController : ControllerBase
             ShippingCity = req.ShippingCity,
             ShippingAddress = req.ShippingAddress,
             Notes = req.Notes,
+
+            // سعر الشحن يتم تحديده من الـBackend
             ShippingCost = shippingCost.Value,
+
             PaymentMethod = paymentMethod,
             Status = OrderStatus.Pending
         };
 
-        // حفظ صورة إثبات الدفع داخل قاعدة البيانات
+        // ==========================================
+        // حفظ صورة إثبات الدفع
+        // ==========================================
+
         if (req.PaymentProof != null)
         {
             using var memoryStream = new MemoryStream();
@@ -156,6 +161,10 @@ public class OrdersController : ControllerBase
             order.PaymentProofContentType =
                 req.PaymentProof.ContentType;
         }
+
+        // ==========================================
+        // إضافة المنتجات للطلب
+        // ==========================================
 
         foreach (var item in req.Items)
         {
@@ -170,6 +179,10 @@ public class OrdersController : ControllerBase
                 Quantity = item.Quantity
             });
         }
+
+        // ==========================================
+        // حساب الإجماليات
+        // ==========================================
 
         // إجمالي المنتجات قبل الشحن
         order.Total = order.Items.Sum(
@@ -203,6 +216,10 @@ public class OrdersController : ControllerBase
                 .ToList()
         ));
     }
+
+    // ==========================================
+    // طلبات المستخدم
+    // ==========================================
 
     [HttpGet("mine")]
     public async Task<ActionResult<List<OrderDto>>> GetMine()
@@ -246,7 +263,10 @@ public class OrdersController : ControllerBase
 
         var normalizedArea = area.Trim();
 
-        // شحن 40 جنيه
+        // ==========================================
+        // مناطق قريبة - 40 جنيه بعد انتهاء العرض
+        // ==========================================
+
         var nearbyAreas = new[]
         {
             "مدينة نصر",
@@ -260,10 +280,10 @@ public class OrdersController : ControllerBase
             "المطرية"
         };
 
-        if (nearbyAreas.Contains(normalizedArea))
-            return 40m;
+        // ==========================================
+        // مناطق متوسطة - 60 جنيه بعد انتهاء العرض
+        // ==========================================
 
-        // شحن 60 جنيه
         var mediumAreas = new[]
         {
             "المعادي",
@@ -273,10 +293,10 @@ public class OrdersController : ControllerBase
             "الزمالك"
         };
 
-        if (mediumAreas.Contains(normalizedArea))
-            return 60m;
+        // ==========================================
+        // مناطق بعيدة - 80 جنيه بعد انتهاء العرض
+        // ==========================================
 
-        // شحن 80 جنيه
         var farAreas = new[]
         {
             "التجمع الأول",
@@ -288,11 +308,57 @@ public class OrdersController : ControllerBase
             "العاصمة الإدارية"
         };
 
+        // ==========================================
+        // الشحن المجاني
+        // من 9 سبتمبر 2026
+        // إلى 31 ديسمبر 2026 شاملًا
+        // ==========================================
+
+        var cairoTime =
+            TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+                DateTime.UtcNow,
+                "Africa/Cairo"
+            );
+
+        var today = cairoTime.Date;
+
+        var freeShippingStart =
+            new DateTime(2026, 9, 9);
+
+        var freeShippingEnd =
+            new DateTime(2026, 12, 31);
+
+        if (
+            today >= freeShippingStart &&
+            today <= freeShippingEnd
+        )
+        {
+            if (
+                nearbyAreas.Contains(normalizedArea) ||
+                mediumAreas.Contains(normalizedArea) ||
+                farAreas.Contains(normalizedArea)
+            )
+            {
+                return 0m;
+            }
+
+            return null;
+        }
+
+        // ==========================================
+        // بعد انتهاء العرض
+        // ==========================================
+
+        if (nearbyAreas.Contains(normalizedArea))
+            return 40m;
+
+        if (mediumAreas.Contains(normalizedArea))
+            return 60m;
+
         if (farAreas.Contains(normalizedArea))
             return 80m;
 
         return null;
     }
 }
-
 

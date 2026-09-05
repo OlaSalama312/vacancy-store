@@ -1,0 +1,223 @@
+import { useEffect, useState } from "react";
+import { api } from "../api/client";
+
+const statusOptions = ["Pending", "Paid", "Shipped", "Delivered", "Cancelled"];
+const statusLabel = {
+  Pending: "قيد المراجعة", Paid: "تم الدفع", Shipped: "تم الشحن",
+  Delivered: "تم التسليم", Cancelled: "ملغي",
+};
+
+export default function AdminDashboard() {
+  const [tab, setTab] = useState("orders");
+
+  return (
+    <div className="wrap admin-page">
+     <h2>لوحة التحكم - TEST</h2>
+      <div className="admin-tabs">
+        <button className={tab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>الطلبات</button>
+        <button className={tab === "products" ? "active" : ""} onClick={() => setTab("products")}>المنتجات</button>
+      </div>
+      {tab === "orders" ? <OrdersTab /> : <ProductsTab />}
+    </div>
+  );
+}
+
+function OrdersTab() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { load(); }, []);
+  function load() {
+    setLoading(true);
+    api.adminGetOrders().then(setOrders).finally(() => setLoading(false));
+  }
+
+  async function changeStatus(id, status) {
+    await api.adminUpdateOrderStatus(id, status);
+    load();
+  }
+
+  if (loading) return <p>...جاري التحميل</p>;
+
+  return (
+    <table className="admin-table">
+      <thead>
+  <tr>
+    <th>رقم الطلب</th>
+    <th>العميل</th>
+    <th>الإجمالي</th>
+    <th>الملاحظة</th>
+    <th>الحالة</th>
+  </tr>
+</thead>
+      <tbody>
+        {orders.map((o) => (
+          <tr key={o.id}>
+          <td>#{o.id}</td>
+<td>{o.customerName}</td>
+<td>{o.total} ج.م</td>
+<td>{o.notes || "لا توجد ملاحظة"}</td>
+<td>
+              <select value={o.status} onChange={(e) => changeStatus(o.id, e.target.value)}>
+                {statusOptions.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
+              </select>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function emptyProduct() {
+   return {
+    id: null,
+    name: "",
+    category: "rings",
+    price: "",
+    oldPrice: "",
+    imageUrl: "",
+    imageFile: null,
+  };
+}
+
+function ProductsTab() {
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState(emptyProduct());
+  const [loading, setLoading] = useState(true);
+  const [imagePreview, setImagePreview] = useState("");
+
+  useEffect(() => { load(); }, []);
+  function load() {
+    setLoading(true);
+    api.getProducts().then(setProducts).finally(() => setLoading(false));
+  }
+
+  function set(field) {
+    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  }
+  function handleImageChange(e) {
+  const file = e.target.files?.[0];
+
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("من فضلك اختاري صورة فقط");
+    return;
+  }
+
+  setForm((f) => ({
+    ...f,
+    imageFile: file,
+  }));
+
+  setImagePreview(URL.createObjectURL(file));
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+
+  try {
+    const formData = new FormData();
+
+    formData.append("Name", form.name);
+    formData.append("Category", form.category);
+    formData.append("Price", String(form.price));
+
+    if (form.oldPrice) {
+      formData.append("OldPrice", String(form.oldPrice));
+    }
+
+    if (form.imageFile) {
+      formData.append("Image", form.imageFile);
+    }
+
+    if (form.id) {
+      await api.adminUpdateProduct(form.id, formData);
+    } else {
+      if (!form.imageFile) {
+        alert("من فضلك اختاري صورة للمنتج");
+        return;
+      }
+
+      await api.adminCreateProduct(formData);
+    }
+
+    alert(form.id ? "تم تعديل المنتج بنجاح ✅" : "تم إضافة المنتج بنجاح ✅");
+
+    setForm(emptyProduct());
+    setImagePreview("");
+    load();
+  } catch (error) {
+    alert(error.message || "حصل خطأ، حاولي تاني");
+  }
+}
+
+  async function handleDelete(id) {
+    await api.adminDeleteProduct(id);
+    load();
+  }
+
+  return (
+    <div className="admin-products">
+      <form onSubmit={handleSubmit} className="card-surface admin-product-form">
+        <h3>{form.id ? "تعديل منتج" : "منتج جديد"}</h3>
+        <div className="field"><label>الاسم</label><input value={form.name} onChange={set("name")} required /></div>
+        <div className="field"><label>القسم (slug)</label><input value={form.category} onChange={set("category")} required /></div>
+        <div className="field"><label>السعر</label><input type="number" value={form.price} onChange={set("price")} required /></div>
+        <div className="field"><label>السعر قبل الخصم (اختياري)</label><input type="number" value={form.oldPrice} onChange={set("oldPrice")} /></div>
+        <div className="field">
+  <label>صورة المنتج</label>
+
+  <input
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    onChange={handleImageChange}
+  />
+
+  {imagePreview && (
+    <img
+      src={imagePreview}
+      alt="معاينة الصورة"
+      style={{
+        width: "150px",
+        height: "150px",
+        objectFit: "cover",
+        marginTop: "10px",
+        borderRadius: "10px",
+      }}
+    />
+  )}
+</div>
+        <button className="btn btn-block">{form.id ? "حفظ التعديل" : "إضافة المنتج"}</button>
+      </form>
+
+      {loading ? <p>...جاري التحميل</p> : (
+        <table className="admin-table">
+          <thead><tr><th>الاسم</th><th>القسم</th><th>السعر</th><th></th></tr></thead>
+          <tbody>
+            {products.map((p) => (
+              <tr key={p.id}>
+                <td>{p.name}</td>
+                <td>{p.category}</td>
+                <td>{p.price} ج.م</td>
+                <td>
+                  <button className="link-btn"onClick={() => {
+  setForm({
+    ...p,
+    oldPrice: p.oldPrice || "",
+    imageFile: null,
+  });
+  setImagePreview(p.imageUrl || "");
+}}>تعديل</button>
+                  <button className="link-btn danger" onClick={() => handleDelete(p.id)}>حذف</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
