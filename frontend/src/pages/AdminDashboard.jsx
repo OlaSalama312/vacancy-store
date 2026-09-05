@@ -17,6 +17,13 @@ const statusLabel = {
   Cancelled: "ملغي",
 };
 
+const paymentLabel = {
+  InstaPay: "InstaPay",
+  VodafoneCash: "Vodafone Cash",
+  CashOnDelivery: "الدفع عند الاستلام",
+  COD: "الدفع عند الاستلام",
+};
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState("orders");
 
@@ -63,12 +70,20 @@ function OrdersTab() {
     api
       .adminGetOrders()
       .then(setOrders)
+      .catch((error) => {
+        console.error(error);
+        alert(error.message || "حصل خطأ أثناء تحميل الطلبات");
+      })
       .finally(() => setLoading(false));
   }
 
   async function changeStatus(id, status) {
-    await api.adminUpdateOrderStatus(id, status);
-    load();
+    try {
+      await api.adminUpdateOrderStatus(id, status);
+      load();
+    } catch (error) {
+      alert(error.message || "حصل خطأ أثناء تغيير حالة الطلب");
+    }
   }
 
   if (loading) {
@@ -89,6 +104,8 @@ function OrdersTab() {
             <th>قيمة المنتجات</th>
             <th>مصاريف الشحن</th>
             <th>الإجمالي النهائي</th>
+            <th>طريقة الدفع</th>
+            <th>إثبات الدفع</th>
             <th>الملاحظة</th>
             <th>الحالة</th>
           </tr>
@@ -99,26 +116,47 @@ function OrdersTab() {
             const productsTotal = Number(o.total ?? 0);
             const shippingCost = Number(o.shippingCost ?? 0);
 
-            // لو الـBackend رجّع FinalTotal نستخدمه،
-            // ولو مش موجود نحسبه تلقائيًا.
             const finalTotal = Number(
               o.finalTotal ?? productsTotal + shippingCost
             );
 
+            const paymentMethod =
+              paymentLabel[o.paymentMethod] ||
+              o.paymentMethod ||
+              "غير محدد";
+
             return (
               <tr key={o.id}>
-                <td>#{o.id}</td>
+                {/* رقم الطلب */}
+                <td>
+                  <strong>#{o.id}</strong>
+                </td>
 
+                {/* العميل */}
                 <td>{o.customerName}</td>
 
+                {/* قيمة المنتجات */}
                 <td>
                   <strong>{productsTotal} ج.م</strong>
                 </td>
 
+                {/* الشحن */}
                 <td>
-                  <strong>{shippingCost} ج.م</strong>
+                  {shippingCost === 0 ? (
+                    <strong
+                      style={{
+                        color: "#2e7d32",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      شحن مجاني 🎁
+                    </strong>
+                  ) : (
+                    <strong>{shippingCost} ج.م</strong>
+                  )}
                 </td>
 
+                {/* الإجمالي النهائي */}
                 <td>
                   <strong
                     style={{
@@ -130,10 +168,61 @@ function OrdersTab() {
                   </strong>
                 </td>
 
+                {/* طريقة الدفع */}
+                <td>
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      background: "#fff8ee",
+                      border: "1px solid #d8c3a5",
+                      color: "#6d5135",
+                      fontWeight: "700",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {paymentMethod}
+                  </div>
+                </td>
+
+                {/* إثبات الدفع */}
+                <td>
+                  {o.paymentProofUrl ? (
+                    <a
+                      href={o.paymentProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-block",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        background: "#8a6842",
+                        color: "#fff",
+                        textDecoration: "none",
+                        fontWeight: "700",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      📷 عرض الإثبات
+                    </a>
+                  ) : (
+                    <span
+                      style={{
+                        color: "#888",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      لا يوجد
+                    </span>
+                  )}
+                </td>
+
+                {/* الملاحظة */}
                 <td>
                   {o.notes || "لا توجد ملاحظة"}
                 </td>
 
+                {/* الحالة */}
                 <td>
                   <select
                     value={o.status}
@@ -271,8 +360,15 @@ function ProductsTab() {
   }
 
   async function handleDelete(id) {
-    await api.adminDeleteProduct(id);
-    load();
+    try {
+      await api.adminDeleteProduct(id);
+      load();
+    } catch (error) {
+      alert(
+        error.message ||
+          "حصل خطأ أثناء حذف المنتج"
+      );
+    }
   }
 
   return (
